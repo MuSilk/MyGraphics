@@ -6,15 +6,23 @@
 #include <glm/glm.hpp>
 
 #include <glBasic/glObject.h>
+#include <object/DataObject.h>
 
 struct CurvePoint{
     glm:: vec3 V,T,N,B;
 };
 
-class Curve:public std::vector<CurvePoint>,public glObject{
+class Curve:public DataObject,public glObject{
 public:
-    Curve(){};
-    Curve(size_t n):std::vector<CurvePoint>(n){}
+    Curve(){useIndex=false;};
+    Curve(size_t n){vertices.resize(12*n);}
+
+    CurvePoint& getPoint(uint32_t index) const;
+
+    size_t size() const{return vertices.size()/12;};
+    CurvePoint& front() const{return getPoint(0);}
+    CurvePoint& back() const{return getPoint(size()-1);}
+    CurvePoint& operator[](uint32_t index) const{return getPoint(index);}
 
     void init();
     void defaultrender(std::map<std::string,Shader>& shaderManager,glm::mat4 model,glm::mat4 view,glm::mat4 projection);

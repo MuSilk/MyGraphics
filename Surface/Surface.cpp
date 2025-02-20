@@ -7,7 +7,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 void Surface::init(){
-    glObject::init(reinterpret_cast<float*>(vertices.data()),vertices.size(),{3,3},indices);
+    glObject::init(reinterpret_cast<float*>(vertices.data()),vertices.size()/SurfacePoint::SIZE,SurfacePoint::PARTITION,indices);
+}
+
+SurfacePoint& Surface::getPoint(uint32_t index) const{
+	return *(SurfacePoint*)(vertices.data()+index*6);
 }
 
 void Surface::defaultrender(
@@ -28,12 +32,12 @@ void Surface::defaultrender(
     shader.setMat4("projection",projection);
 
     shader.setVec3("viewPos",viewPos);
-    shader.setVec3("material.diffuse",glm::vec3(0.4f));
-    shader.setVec3("material.specular",glm::vec3(0.4f));
+    shader.setVec3("material.diffuse",materialDiffuse);
+    shader.setVec3("material.specular",materialSpecular);
     shader.set1f("material.shininess",20.0f);
-    shader.setVec3("light.direction",glm::normalize(glm::vec3(-1.0f,1.0f,0.0f)));
-    shader.setVec3("light.color",glm::vec3(1.0f));
-    shader.setVec3("ambientColor",glm::vec3(0.5f));
+    shader.setVec3("light.direction",lightDir);
+    shader.setVec3("light.color",lightColor);
+    shader.setVec3("ambientColor",ambientColor);
 
     render(GL_TRIANGLES);
 }
@@ -52,20 +56,35 @@ void Surface::defaultrender_T(
 	}
 	Shader shader=shaderManager["SURFACE_DEFAULT_SHADER_N"];
 	shader.use();
-    shader.setMat4("model",glm::mat4(1.0f));
+    shader.setMat4("model",model);
     shader.setMat4("view",view);
     shader.setMat4("projection",projection);
 	glObject::render(GL_TRIANGLES);
 }
 
+void Surface::defaultrender_region(
+	std::map<std::string,Shader>& shaderManager,
+	glm::mat4 mvp,
+	glm::vec3 color){
+
+	if(shaderManager.find("SURFACE_DEFAULT_SHADER_REGION")==shaderManager.end()){
+		shaderManager["SURFACE_DEFAULT_SHADER_REGION"] = Surface::defaultShader_region();
+	}
+	Shader shader=shaderManager["SURFACE_DEFAULT_SHADER_REGION"];
+	shader.use();
+	shader.setMat4("mvp",mvp);
+	shader.setVec3("color",color);
+	render(GL_TRIANGLES);
+}
+
 Surface Surface::evalQuad(){
     Surface R;
-	R.vertices.insert(R.vertices.end(), {
-		{glm::vec3(-1,0,-1),glm::vec3(0,1,0)},
-		{glm::vec3(+1,0,-1),glm::vec3(0,1,0)},
-		{glm::vec3(+1,0,+1),glm::vec3(0,1,0)},
-		{glm::vec3(-1,0,+1),glm::vec3(0,1,0)},
-	});
+	R.vertices=std::vector<float>{
+		-1.0f,0.0f,-1.0f,	0.0f,1.0f,0.0f,
+		+1.0f,0.0f,-1.0f,	0.0f,1.0f,0.0f,
+		+1.0f,0.0f,+1.0f,	0.0f,1.0f,0.0f,
+		-1.0f,0.0f,+1.0f,	0.0f,1.0f,0.0f,
+	};
 
 	R.indices.insert(R.indices.end(), {
 		0,1,2,
@@ -77,38 +96,37 @@ Surface Surface::evalQuad(){
 
 Surface Surface::evalCube(){
 	Surface R;
-	R.vertices.insert(R.vertices.end(), {
-		{glm::vec3(-1,-1,+1),glm::vec3(0,0,1)},
-		{glm::vec3(+1,-1,+1),glm::vec3(0,0,1)},
-		{glm::vec3(+1,+1,+1),glm::vec3(0,0,1)},
-		{glm::vec3(-1,+1,+1),glm::vec3(0,0,1)},
+	R.vertices=std::vector<float>{
+		-1,-1,+1,0,0,1,
+		+1,-1,+1,0,0,1,
+		+1,+1,+1,0,0,1,
+		-1,+1,+1,0,0,1,
 
-		{glm::vec3(-1,-1,-1),glm::vec3(0,0,-1)},
-		{glm::vec3(+1,-1,-1),glm::vec3(0,0,-1)},
-		{glm::vec3(+1,+1,-1),glm::vec3(0,0,-1)},
-		{glm::vec3(-1,+1,-1),glm::vec3(0,0,-1)},
+		-1,-1,-1,0,0,-1,
+		+1,-1,-1,0,0,-1,
+		+1,+1,-1,0,0,-1,
+		-1,+1,-1,0,0,-1,
 
-		{glm::vec3(-1,+1,-1),glm::vec3(0,1,0)},
-		{glm::vec3(+1,+1,-1),glm::vec3(0,1,0)},
-		{glm::vec3(+1,+1,+1),glm::vec3(0,1,0)},
-		{glm::vec3(-1,+1,+1),glm::vec3(0,1,0)},
+		-1,+1,-1,0,1,0,
+		+1,+1,-1,0,1,0,
+		+1,+1,+1,0,1,0,
+		-1,+1,+1,0,1,0,
 
-		{glm::vec3(-1,-1,-1),glm::vec3(0,-1,0)},
-		{glm::vec3(+1,-1,-1),glm::vec3(0,-1,0)},
-		{glm::vec3(+1,-1,+1),glm::vec3(0,-1,0)},
-		{glm::vec3(-1,-1,+1),glm::vec3(0,-1,0)},
+		-1,-1,-1,0,-1,0,
+		+1,-1,-1,0,-1,0,
+		+1,-1,+1,0,-1,0,
+		-1,-1,+1,0,-1,0,
 
-		{glm::vec3(+1,-1,-1),glm::vec3(1,0,0)},
-		{glm::vec3(+1,+1,-1),glm::vec3(1,0,0)},
-		{glm::vec3(+1,+1,+1),glm::vec3(1,0,0)},
-		{glm::vec3(+1,-1,+1),glm::vec3(1,0,0)},
+		+1,-1,-1,1,0,0,
+		+1,+1,-1,1,0,0,
+		+1,+1,+1,1,0,0,
+		+1,-1,+1,1,0,0,
 
-		{glm::vec3(-1,-1,-1),glm::vec3(-1,0,0)},
-		{glm::vec3(-1,+1,-1),glm::vec3(-1,0,0)},
-		{glm::vec3(-1,+1,+1),glm::vec3(-1,0,0)},
-		{glm::vec3(-1,-1,+1),glm::vec3(-1,0,0)},
-
-		});
+		-1,-1,-1,-1,0,0,
+		-1,+1,-1,-1,0,0,
+		-1,+1,+1,-1,0,0,
+		-1,-1,+1,-1,0,0,
+	};
 
 	R.indices.insert(R.indices.end(), {
 		0, 1, 2, 0, 2, 3,
@@ -129,10 +147,10 @@ Surface Surface::evalSphere(float radius,uint32_t steps){
 		float t1 = 2.0f * glm::pi<float>() * float(i) / steps;
 		for (size_t j = 0; j <= steps / 2; ++j) {
 			float t2 = 1.0f * glm::pi<float>() * float(j) / (steps / 2);
-			R.vertices.push_back({
-				radius * glm::vec3(sin(t2) * cos(t1),sin(t2) * sin(t1),cos(t2)) ,
-				glm::vec3(sin(t2) * cos(t1),sin(t2) * sin(t1),cos(t2)) ,
-			});
+			auto V=radius * glm::vec3(sin(t2) * cos(t1),sin(t2) * sin(t1),cos(t2));
+			auto N=glm::vec3(sin(t2) * cos(t1),sin(t2) * sin(t1),cos(t2));
+			R.vertices.insert(R.vertices.end(),{V.x,V.y,V.z});
+			R.vertices.insert(R.vertices.end(),{N.x,N.y,N.z});
 		}
 
 		uint32_t l_now = i * (steps / 2 + 1);
@@ -171,9 +189,11 @@ Surface Surface::evalSweepSurf(const Curve& profile, unsigned steps)
 		M = glm::rotate(M, t, glm::vec3(0, 1, 0));
 		glm::mat4 M_norm = glm::transpose(glm::inverse(M));
 		for (size_t j = 0; j < profile.size(); ++j) {
-			surface.vertices.push_back({
-				glm::vec3(M * glm::vec4(profile[j].V,1.0f)),
-				glm::vec3(M_norm * glm::vec4(-profile[j].N,1.0f))
+			auto V=glm::vec3(M * glm::vec4(profile[j].V,1.0f));
+			auto N=glm::vec3(M_norm * glm::vec4(-profile[j].N,1.0f));
+			surface.vertices.insert(surface.vertices.end(),{
+				V.x,V.y,V.z,
+				N.x,N.y,N.z
 			});
 		}
 
@@ -207,9 +227,11 @@ Surface Surface::evalCylinder(const Curve& profile, const Curve& sweep)
 		glm::mat4 M_norm = glm::transpose(glm::inverse(M));
 
 		for (size_t j = 0; j < profile.size(); ++j) {
-			surface.vertices.push_back({
-				glm::vec3(M * glm::vec4(profile[j].V,1.0f)),
-				glm::vec3(M_norm * glm::vec4(-profile[j].N,1.0f))
+			auto V=glm::vec3(M * glm::vec4(profile[j].V,1.0f));
+			auto N=glm::vec3(M_norm * glm::vec4(-profile[j].N,1.0f));
+			surface.vertices.insert(surface.vertices.end(),{
+				V.x,V.y,V.z,
+				N.x,N.y,N.z
 			});
 		}
 	}
@@ -239,9 +261,11 @@ Surface Surface::evalModel(const char* filename) {
 	std::vector<int> cnt(attrib.vertices.size() / 3);
 
 	for (size_t i = 0; i < attrib.vertices.size(); i+=3) {
-		surface.vertices.push_back({
-			glm::vec3(attrib.vertices[i],attrib.vertices[i + 1],attrib.vertices[i + 2]),
-			glm::vec3(0)
+		auto V= glm::vec3(attrib.vertices[i],attrib.vertices[i + 1],attrib.vertices[i + 2]);
+		auto N=glm::vec3(0);
+		surface.vertices.insert(surface.vertices.end(),{
+			V.x,V.y,V.z,
+			N.x,N.y,N.z
 		});
 	}
 
@@ -262,13 +286,13 @@ Surface Surface::evalModel(const char* filename) {
 			glm::vec3 b = v[2] - v[0];
 			glm::vec3 normal = glm::normalize(glm::cross(a, b));
 			for (size_t j = 0; j < 3; j++) {
-				surface.vertices[ind[j]].N += normal;
+				surface[ind[j]].N += normal;
 				cnt[ind[j]]++;
 			}
 		}
 	}
 	for (size_t i = 0; i < surface.vertices.size();i++) {
-		surface.vertices[i].N /= cnt[i];
+		surface[i].N /= cnt[i];
 	}
 	return surface;
 }
@@ -290,3 +314,48 @@ Shader Surface::defaultShader_N(){
 	);
 	return shader;
 }
+
+Shader Surface::defaultShader_region(){
+	const char* vert =
+		"#version 330 core\n"
+		"layout (location = 0) in vec3 V;\n"
+		"layout (location = 1) in vec3 N;\n"
+		"uniform mat4 mvp;"
+		"uniform vec3 color;"
+		"layout (location = 0) out vec3 fragColor;\n"
+		"void main(){\n"
+		"    gl_Position = mvp*vec4(V,1.0);\n"
+		"    fragColor = color;\n"
+		"}\0";
+
+	const char* frag =
+		"#version 330 core\n"
+		"layout(location=0) in vec3 fragColor;\n"
+		"out vec4 FragColor;\n"
+		"void main()\n"
+		"{\n"
+		"    FragColor = vec4(fragColor, 1.0f);\n"
+		"}\0";
+	
+	Shader shader;
+	shader.compile(vert,nullptr,frag);
+	return shader;
+}
+
+void SurfaceTBO::init(const Surface& surface){
+	FaceNum = surface.indices.size() / 3;
+	vertices.init((void*)surface.vertices.data(),surface.vertices.size() * 6 * sizeof(float),GL_R32F);
+	indices.init((void*)surface.indices.data(),surface.indices.size() * sizeof(uint32_t),GL_R32UI);
+}
+
+void SurfaceTBO::use(){
+	vertices.bind(1);
+	indices.bind(2);
+}
+
+void SurfaceTBO::release(){
+	vertices.release();
+	indices.release();
+}
+
+uint32_t SurfaceTBO::getFaceNum(){return FaceNum;}

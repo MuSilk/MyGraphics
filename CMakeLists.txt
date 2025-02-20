@@ -17,7 +17,7 @@ target_link_libraries(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/3rdparty/GLFW/lib/glf
 add_subdirectory(3rdparty)
 target_link_libraries(${PROJECT_NAME} libimgui)
 
-add_subdirectory(app)
+add_subdirectory(application)
 target_link_libraries(${PROJECT_NAME} libapp)
 
 add_subdirectory(glBasic)
@@ -28,3 +28,9 @@ target_link_libraries(${PROJECT_NAME} libsurface)
 
 add_subdirectory(shaders)
 target_link_libraries(${PROJECT_NAME} libshaders)
+
+add_subdirectory(object)
+target_link_libraries(${PROJECT_NAME} libobject)
+
+add_subdirectory(raytrace)
+target_link_libraries(${PROJECT_NAME} libraytrace)

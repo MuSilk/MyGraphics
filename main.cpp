@@ -1,8 +1,8 @@
 #include <iostream>
 using namespace std;
 
-#include "app/glApplication.h"
 #include <memory>
+#include <application/glApplication.h>
 
 int main(){
     std::unique_ptr<Application> app{new glApplication()};

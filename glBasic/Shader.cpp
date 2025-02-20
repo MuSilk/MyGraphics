@@ -122,10 +122,11 @@ Shader Shader::Shader_3d_single_color() {
 		"layout (location = 0) in vec3 aPos;\n"
 
 		"uniform vec3 aColor;"
+		"uniform mat4 mvp;"
 
 		"layout (location = 0) out vec3 fragColor;\n"
 		"void main(){\n"
-		"    gl_Position = vec4(aPos,1.0);\n"
+		"    gl_Position = mvp*vec4(aPos,1.0);\n"
 		"    fragColor = aColor;\n"
 		"}\0";
 

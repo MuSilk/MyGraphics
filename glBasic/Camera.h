@@ -50,11 +50,23 @@ public:
 		return glm::perspective(glm::radians(Zoom), (float)width / height, near, far);
 	}
 
-	glm::vec2 GetGrid(uint32_t width, uint32_t height) {
-		float d = sqrt(pow(height, 2) / pow(tan(glm::radians(Zoom) / 2), 2) - pow(width, 2)) / 2;
-		return glm::vec2(width, height) / d;
+	glm::vec2 GetGrid(uint32_t width, uint32_t height) const {
+		double d = height/2.0/tan(glm::radians(ZOOM/2));
+		return (glm::vec2(width, height) / (float)d);
 	}
 
+	glm::vec3 GetDirection(glm::vec2 pos, uint32_t width, uint32_t height) const {
+		pos.x/=width;
+		pos.y=1-pos.y/height;
+		glm::vec2 grid = GetGrid(width, height);
+		glm::vec3 direction = glm::normalize(Front+(pos.x-0.5f)*grid.x*Right+(pos.y-0.5f)*grid.y*Up);
+		return direction;
+	}
+	glm::vec3 GetPointPosition(glm::vec2 pos, float dist, uint32_t width, uint32_t height) const {
+		glm::vec3 direction = GetDirection(pos, width, height);
+		dist=dist/glm::dot(direction,Front); 
+		return Position + direction * dist;
+	}
 	void ProcessKeyboard(Camera_Movement direction, float deltaTime) {
 		float velocity = MovementSpeed * deltaTime;
 		if (direction == FORWARD) Position += Front * velocity;

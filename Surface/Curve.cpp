@@ -9,7 +9,11 @@ inline bool approx(const glm::vec3& lhs, const glm::vec3& rhs)
 }
 
 void Curve::init(){
-    glObject::init(reinterpret_cast<float*>(this->data()),this->size(),{3,3,3,3});
+    glObject::init(reinterpret_cast<float*>(vertices.data()),vertices.size()/12,{3,3,3,3});
+}
+
+CurvePoint& Curve::getPoint(uint32_t index) const{
+	return *(CurvePoint*)(vertices.data()+index*6);
 }
 
 void Curve::defaultrender(std::map<std::string,Shader>& shaderManager,glm::mat4 model,glm::mat4 view,glm::mat4 proj){
@@ -126,7 +130,7 @@ Curve Curve::evalBspline(const std::vector< glm::vec3 >& P, uint32_t steps) {
 	size_t n = P.size() - 3;
 	Curve R(n * steps + 1);
 	for (size_t i = 0; i < n; i++) {
-		vector<glm::vec3> pBEZ(4);
+		std::vector<glm::vec3> pBEZ(4);
 		for (size_t j = 0; j < 4; j++) {
 			glm::vec4 v = trans_B_BEZ[j];
 			for (size_t k = 0; k < 4; k++) {
@@ -134,7 +138,9 @@ Curve Curve::evalBspline(const std::vector< glm::vec3 >& P, uint32_t steps) {
 			}
 		}
 		Curve curve = evalBezier(pBEZ, steps);
-		copy(curve.begin(), curve.end(), R.begin() + i * steps);
+		for(size_t j=0;j<curve.size();j++){
+			R[i*steps+j]=curve[j];
+		}
 	}
 
 	if (approx(R[0].T, glm::vec3(0, 0, 1)))R[0].N = glm::normalize(glm::cross(glm::vec3(1, 0, 0), R[0].T));
