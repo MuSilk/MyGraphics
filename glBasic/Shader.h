@@ -71,3 +71,6 @@ public:
 	static Shader Shader_ray_trace();
 	static Shader Shader_screen();
 };
+
+#include <map>
+typedef std::map<std::string,Shader> ShaderManager;

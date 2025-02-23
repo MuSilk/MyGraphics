@@ -7,6 +7,14 @@
 
 #define FRAME_PRE_SECOND 120
 
+static inline ImVec2 glm2imgui(glm::vec2 v){
+    return ImVec2(v.x,v.y);
+}
+
+static inline glm::vec2 imgui2glm(ImVec2 v){
+    return glm::vec2(v.x,v.y);
+}
+
 void glApplication::initWindow(){
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -55,7 +63,7 @@ void glApplication::initSettings(){
 }
 
 #include <surface/Curve.h>
-#include <surface/Surface.h>
+#include <surface/Mesh.h>
 #include <surface/ScreenVT.h>
 #include <shaders/rc.h>
 #include <raytrace/RayTrace.h>
@@ -71,9 +79,17 @@ glDynamicObject ray;
 void glApplication::createDataBuffer(){
 
     // ray_trace.init(Width,Height);
-    Surface* cube = new Surface(Surface::evalCube());
+    Mesh* cube = new Mesh(Mesh::evalCube());
     cube->init();
     DataObjects["cube"]=cube;
+
+    Curve* circle = new Curve(Curve::evalCircle(1.0f,100)); 
+    circle->init();
+    DataObjects["circle"]=circle;
+
+    Mesh* solidcircle=new Mesh(Mesh::evalCircle(1.0f,100));
+    solidcircle->init();
+    DataObjects["solid_circle"]=solidcircle;
 
     ray.init(2,{3});
 }
@@ -187,16 +203,16 @@ void glApplication::GuiRender(){
 
             ImGuiID bottomNode = ImGui::DockBuilderSplitNode(root, ImGuiDir_Down, 0.25f, nullptr, &root);
 
-            ImGuiID leftTopNode, leftBottomNode;
-            ImGui::DockBuilderSplitNode(leftNode, ImGuiDir_Up, 0.5f, &leftTopNode, &leftBottomNode);
+            ImGuiID rightTopNode, rightBottomNode;
+            ImGui::DockBuilderSplitNode(rightNode, ImGuiDir_Up, 0.3f, &rightTopNode, &rightBottomNode);
 
             ImGui::DockBuilderGetNode(root)->LocalFlags |= ImGuiDockNodeFlags_HiddenTabBar;
 
-            ImGui::DockBuilderDockWindow(UI_PROJECT_BOX, leftTopNode);     // 左上节点
-            ImGui::DockBuilderDockWindow(UI_TOOL_BOX, leftBottomNode); // 左下节点
-            ImGui::DockBuilderDockWindow(UI_PROPERTY_BOX, rightNode);          // 右边节点
+            ImGui::DockBuilderDockWindow(UI_TOOL_BOX, leftNode); 
+            ImGui::DockBuilderDockWindow(UI_PROPERTY_BOX, rightBottomNode);  
+            ImGui::DockBuilderDockWindow(UI_PROJECT_BOX, rightTopNode);           
   
-            ImGui::DockBuilderDockWindow(UI_MESSAGE_BOX, bottomNode);      // 下面节点同时停靠两个窗口
+            ImGui::DockBuilderDockWindow(UI_MESSAGE_BOX, bottomNode);      
             ImGui::DockBuilderDockWindow(UI_LOG_BOX, bottomNode);
   
             ImGui::DockBuilderDockWindow(UI_VIEW_BOX, root);
@@ -215,8 +231,14 @@ void glApplication::GuiRender(){
     ImGui::End();
 
     if(ImGui::Begin(UI_PROJECT_BOX)){
-        ImGui::LabelText("label","test");
-        ImGui::Button("click me and get nothing");
+        if(ImGui::CollapsingHeader("MainSence",ImGuiTreeNodeFlags_DefaultOpen)){
+            for(auto& [id,obj]:MainScene.Objects){
+                if(ImGui::Selectable(obj->name.c_str(),&obj->selected)){
+                    if(obj->selected)MainScene.selectObject(id);
+                    else MainScene.deselectObjcet(id);
+                }
+            }
+        }
     }
     ImGui::End();
 
@@ -228,38 +250,71 @@ void glApplication::GuiRender(){
 
     if(ImGui::Begin(UI_PROPERTY_BOX)){
         if(MainScene.lastSelectObject!=-1){
-            auto& obj=MainScene.Objects[MainScene.lastSelectObject];
+            auto obj=MainScene.Objects[MainScene.lastSelectObject];
 
-            ImGui::LabelText("Name",obj.name.c_str());
-            ImGui::LabelText("Id","%d",obj.id);
+            ImGui::LabelText("Name",obj->name.c_str());
+            ImGui::LabelText("Id","%d",obj->id);
 
-            if(ImGui::CollapsingHeader("Transform",ImGuiTreeNodeFlags_DefaultOpen)){
-                ImGui::SeparatorText("Location");
-                ImGui::InputFloat("X##Location.x", &obj.position.x);
-                ImGui::InputFloat("Y##Location.y", &obj.position.y);
-                ImGui::InputFloat("Z##Location.z", &obj.position.z);
+            if(obj->objectType()==ObjectType::COMMON){
+                if(ImGui::CollapsingHeader("Transform",ImGuiTreeNodeFlags_DefaultOpen)){
+                    ImGui::SeparatorText("Location");
+                    ImGui::InputFloat("X##Location.x", &obj->position.x);
+                    ImGui::InputFloat("Y##Location.y", &obj->position.y);
+                    ImGui::InputFloat("Z##Location.z", &obj->position.z);
 
-                ImGui::SeparatorText("Rotation");
-                ImGui::InputFloat("W##Rotation.w", &obj.rotation.w);
-                ImGui::InputFloat("X##Rotation.x", &obj.rotation.x);
-                ImGui::InputFloat("Y##Rotation.y", &obj.rotation.y);
-                ImGui::InputFloat("Z##Rotation.z", &obj.rotation.z);
+                    ImGui::SeparatorText("Rotation");
+                    ImGui::InputFloat("W##Rotation.w", &obj->rotation.w);
+                    ImGui::InputFloat("X##Rotation.x", &obj->rotation.x);
+                    ImGui::InputFloat("Y##Rotation.y", &obj->rotation.y);
+                    ImGui::InputFloat("Z##Rotation.z", &obj->rotation.z);
 
-                ImGui::SeparatorText("Scale");
-                ImGui::InputFloat("X##Scale.x", &obj.scale.x);
-                ImGui::InputFloat("Y##Scale.y", &obj.scale.y);
-                ImGui::InputFloat("Z##Scale.z", &obj.scale.z);
-            }
-
-            if(ImGui::CollapsingHeader("Material",ImGuiTreeNodeFlags_DefaultOpen)){
-                ImGui::LabelText("Type",obj.material->MaterialType().c_str());
-
-                if(typeid(*obj.material)==typeid(MaterialColor)){
-                    if(ImGui::ColorEdit3("Color",(float*)&((MaterialColor*)obj.material)->color)){
-
-                    }
+                    ImGui::SeparatorText("Scale");
+                    ImGui::InputFloat("X##Scale.x", &obj->scale.x);
+                    ImGui::InputFloat("Y##Scale.y", &obj->scale.y);
+                    ImGui::InputFloat("Z##Scale.z", &obj->scale.z);
                 }
             }
+            else if(obj->objectType()==ObjectType::PHONE){
+                if(ImGui::CollapsingHeader("Transform",ImGuiTreeNodeFlags_DefaultOpen)){
+                    ImGui::SeparatorText("Location");
+                    ImGui::InputFloat("X##Location.x", &obj->position.x);
+                    ImGui::InputFloat("Y##Location.y", &obj->position.y);
+                    ImGui::InputFloat("Z##Location.z", &obj->position.z);
+
+                    ImGui::SeparatorText("Rotation");
+                    ImGui::InputFloat("W##Rotation.w", &obj->rotation.w);
+                    ImGui::InputFloat("X##Rotation.x", &obj->rotation.x);
+                    ImGui::InputFloat("Y##Rotation.y", &obj->rotation.y);
+                    ImGui::InputFloat("Z##Rotation.z", &obj->rotation.z);
+
+                    ImGui::SeparatorText("Scale");
+                    ImGui::InputFloat("X##Scale.x", &obj->scale.x);
+                    ImGui::InputFloat("Y##Scale.y", &obj->scale.y);
+                    ImGui::InputFloat("Z##Scale.z", &obj->scale.z);
+                }
+                auto phone_ptr=(PhoneObject*)obj;
+                if(ImGui::CollapsingHeader("Surface",ImGuiTreeNodeFlags_DefaultOpen)){
+                    ImGui::ColorEdit3("diffuse",(float*)&(((SurfaceColor*)(phone_ptr->diffuse))->color));
+                    ImGui::ColorEdit3("specular",(float*)&(((SurfaceColor*)(phone_ptr->specular))->color));
+                    ImGui::InputFloat("shininess",&(phone_ptr->shininess));
+                }
+            }
+            else if(obj->objectType()==ObjectType::LIGHT){
+                if(ImGui::CollapsingHeader("Transform",ImGuiTreeNodeFlags_DefaultOpen)){
+                    ImGui::SeparatorText("Location");
+                    ImGui::InputFloat("X##Location.x", &obj->position.x);
+                    ImGui::InputFloat("Y##Location.y", &obj->position.y);
+                    ImGui::InputFloat("Z##Location.z", &obj->position.z);
+                }
+
+                if(ImGui::CollapsingHeader("Surface",ImGuiTreeNodeFlags_DefaultOpen)){
+                    if(ImGui::ColorEdit3("Color",(float*)&(((Light*)obj)->color)));
+                    if(ImGui::InputFloat("Constant",&(((Light*)obj)->constant)));
+                    if(ImGui::InputFloat("Linear",&(((Light*)obj)->linear)));
+                    if(ImGui::InputFloat("Quadratic",&(((Light*)obj)->quadratic)));
+                }
+            }
+            
         }
     }
     ImGui::End();
@@ -281,26 +336,45 @@ void glApplication::GuiRender(){
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);              
 
     if(ImGui::Begin(UI_VIEW_BOX,0,ImGuiWindowFlags_NoBackground)){
-        ImVec2 pos  = ImGui::GetWindowPos();
-        ImVec2 size = ImGui::GetWindowSize();
-        ImGui::Text("position: %0.2f, %0.2f", pos.x, pos.y);
-        ImGui::Text("size: %0.2f, %0.2f", size.x, size.y);
+        ViewBoxPos  = imgui2glm(ImGui::GetWindowPos());
+        ViewBoxSize = imgui2glm(ImGui::GetWindowSize());
 
         if(ImGui::BeginPopupContextWindow()){
             if(ImGui::MenuItem("Create Cube",NULL)){
-                RenderObject obj;
+                // RenderObject obj=RenderObject::evalSurface(
+                //     MainCamera.GetPointPosition(mouseRightClickMenuPos,20.0f,Width,Height),
+                //     DataObjects["cube"],
+                //     Shaders,MainCamera,Width,Height
+                // );
+                PhoneObject obj=PhoneObject::evalMeshObject(
+                    MainCamera.GetPointPosition(mouseRightClickMenuPos,20.0f,Width,Height),
+                    DataObjects["cube"],
+                    Shaders,MainCamera,Width,Height
+                );
+                MainScene.addObject(obj);
+            }
+            if(ImGui::MenuItem("Create Light",NULL)){
+                Light obj; 
                 obj.position=MainCamera.GetPointPosition(mouseRightClickMenuPos,20.0f,Width,Height);
-                obj.scale=glm::vec3(1.0f,1.0f,1.0f);
+                obj.scale=glm::vec3(0.1f,0.1f,0.1f);
                 obj.rotation=glm::quat(glm::vec3(0.0f,0.0f,0.0f));
-                obj.surface=DataObjects["cube"];
-                obj.clickRegion=DataObjects["cube"];
+                obj.dataSurface=DataObjects["circle"];
+                obj.clickRegion=DataObjects["solid_circle"];
 
                 obj.render=Scene::defaultrender(Shaders,&MainCamera,&Width,&Height);
                 obj.render_margin=Scene::defaultrender_region(Shaders,&MainCamera,&Width,&Height);
 
-                obj.material=new MaterialColor();
-
+                obj.update=[&](RenderObject& thisobj){
+                    auto z=glm::normalize(MainCamera.Position-thisobj.position);
+                    auto x=glm::normalize(glm::cross(glm::vec3(0.0f,1.0f,0.0f),z));
+                    auto y=glm::normalize(glm::cross(z,x));
+                    glm::mat3 rotate={x,y,z};
+                    thisobj.rotation=glm::quat(rotate);
+                };
+                
+                obj.dataSurface->name="Light";
                 MainScene.addObject(obj);
+                obj.dataSurface->name="Circle";
             }
             ImGui::EndPopup();
         }
@@ -325,6 +399,8 @@ void glApplication::EngineUpdate(double dt){
         MainCamera.ProcessKeyboard(Camera_Movement::UP,dt),ray_trace.initrender();
     if(glfwGetKey(window,GLFW_KEY_E)==GLFW_PRESS)
         MainCamera.ProcessKeyboard(Camera_Movement::DOWN,dt),ray_trace.initrender();
+
+    MainScene.update();
 }
 
 void glApplication::EngineRender(){
@@ -337,11 +413,11 @@ void glApplication::EngineRender(){
             MainScene.render();
             MainScene.render_select();
             break;
+        case RENDEROPTION_PHONE:
+            MainScene.render_phone();
         default:
             break;
         }
-
-    
 
     // ray_trace.render(MainCamera,Width,Height);
 }
@@ -368,7 +444,6 @@ void glApplication::keyCallback(GLFWwindow* window, int key, int scancode, int a
             app->firstMouse=true;
             glfwSetInputMode(window,GLFW_CURSOR,GLFW_CURSOR_DISABLED);
             app->MouseEnabled=false;
-            app->mouseRightClickMenuVisible=false;
         }
         else{
             glfwSetInputMode(window,GLFW_CURSOR,GLFW_CURSOR_NORMAL);
@@ -385,10 +460,7 @@ void glApplication::dragSelectObjects(glm::vec2 mouseMovement){
     auto center=MainScene.getObjectsSelectCenter();
     auto distance=glm::dot(center-MainCamera.Position,MainCamera.Front);
     glm::vec3 translation=MainCamera.Right*mouseMovement.x*distance*grid.x+MainCamera.Up*mouseMovement.y*distance*grid.y;
-    glm::mat4 matrix=glm::translate(glm::mat4(1.0f),translation);
-    for(auto& i:MainScene.ObjectsSelect){
-        MainScene.Objects[i].position=glm::vec3(matrix*glm::vec4(MainScene.Objects[i].position,1.0f));   
-    }
+    MainScene.dragSelectObjects(translation);
 }
 
 void glApplication::cursorPosCallback(GLFWwindow* window, double xposIn, double yposIn){
@@ -434,16 +506,17 @@ void glApplication::mouseButtonCallback(GLFWwindow* window, int button, int acti
     }
 
     if(button==GLFW_MOUSE_BUTTON_RIGHT && action==GLFW_PRESS && app->MouseEnabled){
-        app->mouseRightClickMenuVisible=true;
         app->mouseRightClickMenuPos=app->mousePos;
     }
     if(button==GLFW_MOUSE_BUTTON_LEFT && action==GLFW_PRESS){
-        app->MainScene.clearSelcectObjects();
-        auto dir=app->MainCamera.GetDirection(app->mousePos,app->Width,app->Height);
-        uint32_t idt;
-        float t=std::numeric_limits<float>::max();
-        if(app->MainScene.intersect(app->MainCamera.Position,dir,0.1f,t,idt)){
-            app->MainScene.selectObject(idt);
+        if(ImRect(glm2imgui(app->ViewBoxPos),glm2imgui(app->ViewBoxPos+app->ViewBoxSize)).Contains(glm2imgui(app->mousePos))){
+            app->MainScene.clearSelcectObjects();
+            auto dir=app->MainCamera.GetDirection(app->mousePos,app->Width,app->Height);
+            uint32_t idt;
+            float t=std::numeric_limits<float>::max();
+            if(app->MainScene.intersect(app->MainCamera.Position,dir,0.1f,t,idt)){
+                app->MainScene.selectObject(idt);
+            }
         }
     }
 }

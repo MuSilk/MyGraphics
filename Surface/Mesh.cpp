@@ -1,4 +1,4 @@
-#include "Surface.h"
+#include "Mesh.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
@@ -6,15 +6,15 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-void Surface::init(){
-    glObject::init(reinterpret_cast<float*>(vertices.data()),vertices.size()/SurfacePoint::SIZE,SurfacePoint::PARTITION,indices);
+void Mesh::init(){
+    glObject::init(reinterpret_cast<float*>(vertices.data()),vertices.size()/MeshPoint::SIZE,MeshPoint::PARTITION,indices);
 }
 
-SurfacePoint& Surface::getPoint(uint32_t index) const{
-	return *(SurfacePoint*)(vertices.data()+index*6);
+MeshPoint& Mesh::getPoint(size_t index) const{
+	return *(MeshPoint*)(vertices.data()+index*6);
 }
 
-void Surface::defaultrender(
+void Mesh::defaultrender(
 	std::map<std::string,Shader>& shaderManager,
 	glm::mat4 model,glm::mat4 view,glm::mat4 projection,
 	glm::vec3 viewPos,glm::vec3 lightDir,
@@ -22,7 +22,7 @@ void Surface::defaultrender(
 	glm::vec3 lightColor,glm::vec3 ambientColor){
 
 	if(shaderManager.find("SURFACE_DEFAULT_SHADER")==shaderManager.end()){
-		shaderManager["SURFACE_DEFAULT_SHADER"] = Surface::defaultShader();
+		shaderManager["SURFACE_DEFAULT_SHADER"] = Mesh::defaultShader();
 	}
 	Shader shader=shaderManager["SURFACE_DEFAULT_SHADER"];
 	shader.use();
@@ -42,7 +42,7 @@ void Surface::defaultrender(
     render(GL_TRIANGLES);
 }
 
-void Surface::defaultrender_T(
+void Mesh::defaultrender_T(
 	std::map<std::string,Shader>& shaderManager,
 	glm::mat4 model,glm::mat4 view,glm::mat4 projection,
 	glm::vec3 viewPos,glm::vec3 lightDir,
@@ -52,7 +52,7 @@ void Surface::defaultrender_T(
 	defaultrender(shaderManager,model,view,projection,viewPos,lightDir,materialDiffuse,materialSpecular,materialShininess,lightColor,ambientColor);
 	
 	if(shaderManager.find("SURFACE_DEFAULT_SHADER_N")==shaderManager.end()){
-		shaderManager["SURFACE_DEFAULT_SHADER_N"] = Surface::defaultShader_N();
+		shaderManager["SURFACE_DEFAULT_SHADER_N"] = Mesh::defaultShader_N();
 	}
 	Shader shader=shaderManager["SURFACE_DEFAULT_SHADER_N"];
 	shader.use();
@@ -62,13 +62,13 @@ void Surface::defaultrender_T(
 	glObject::render(GL_TRIANGLES);
 }
 
-void Surface::defaultrender_region(
+void Mesh::defaultrender_region(
 	std::map<std::string,Shader>& shaderManager,
 	glm::mat4 mvp,
 	glm::vec3 color){
 
 	if(shaderManager.find("SURFACE_DEFAULT_SHADER_REGION")==shaderManager.end()){
-		shaderManager["SURFACE_DEFAULT_SHADER_REGION"] = Surface::defaultShader_region();
+		shaderManager["SURFACE_DEFAULT_SHADER_REGION"] = Mesh::defaultShader_region();
 	}
 	Shader shader=shaderManager["SURFACE_DEFAULT_SHADER_REGION"];
 	shader.use();
@@ -77,8 +77,9 @@ void Surface::defaultrender_region(
 	render(GL_TRIANGLES);
 }
 
-Surface Surface::evalQuad(){
-    Surface R;
+Mesh Mesh::evalQuad(){
+    Mesh R;
+	R.name="Quad";
 	R.vertices=std::vector<float>{
 		-1.0f,0.0f,-1.0f,	0.0f,1.0f,0.0f,
 		+1.0f,0.0f,-1.0f,	0.0f,1.0f,0.0f,
@@ -94,8 +95,9 @@ Surface Surface::evalQuad(){
 	return R;
 }
 
-Surface Surface::evalCube(){
-	Surface R;
+Mesh Mesh::evalCube(){
+	Mesh R;
+	R.name="Cube";
 	R.vertices=std::vector<float>{
 		-1,-1,+1,0,0,1,
 		+1,-1,+1,0,0,1,
@@ -140,8 +142,27 @@ Surface Surface::evalCube(){
 	return R;
 }
 
-Surface Surface::evalSphere(float radius,uint32_t steps){
-	Surface R;
+Mesh Mesh::evalCircle(float radius,uint32_t steps){
+	Curve c=Curve::evalCircle(radius,steps);
+	Mesh R;
+	R.name="SolidCircle";
+	for(size_t i=0;i<c.size();i++){
+		R.vertices.insert(R.vertices.end(),{
+			c[i].V.x,c[i].V.y,c[i].V.z,
+			c[i].N.x,c[i].N.y,c[i].N.z,
+		});
+	}
+	for(size_t i=1;i+1<c.size();i++){
+		R.indices.push_back(0);
+		R.indices.push_back(i);
+		R.indices.push_back(i+1);
+	}
+	return R;
+}
+
+Mesh Mesh::evalSphere(float radius,uint32_t steps){
+	Mesh R;
+	R.name="Sphere";
 
 	for (size_t i = 0; i < steps; ++i){
 		float t1 = 2.0f * glm::pi<float>() * float(i) / steps;
@@ -174,13 +195,14 @@ static bool checkFlat(const Curve& profile)
 	return true;
 }
 
-Surface Surface::evalSweepSurf(const Curve& profile, unsigned steps)
+Mesh Mesh::evalSweepSurf(const Curve& profile, unsigned steps)
 {
-	Surface surface;
+	Mesh mesh;
+	mesh.name="SweepSurf";
 
 	if (!checkFlat(profile)){
 		std::cerr << "surfRev profile curve must be flat on xy plane." << std::endl;
-		return surface;
+		return mesh;
 	}
 
 	for (size_t i = 0; i < steps; ++i) {
@@ -191,7 +213,7 @@ Surface Surface::evalSweepSurf(const Curve& profile, unsigned steps)
 		for (size_t j = 0; j < profile.size(); ++j) {
 			auto V=glm::vec3(M * glm::vec4(profile[j].V,1.0f));
 			auto N=glm::vec3(M_norm * glm::vec4(-profile[j].N,1.0f));
-			surface.vertices.insert(surface.vertices.end(),{
+			mesh.vertices.insert(mesh.vertices.end(),{
 				V.x,V.y,V.z,
 				N.x,N.y,N.z
 			});
@@ -200,21 +222,22 @@ Surface Surface::evalSweepSurf(const Curve& profile, unsigned steps)
 		uint32_t l_now = i * profile.size();
 		uint32_t l_nxt = (i + 1) % steps * profile.size();
 		for (uint32_t j = 0; j + 1 < profile.size(); ++j) {
-			surface.indices.insert(surface.indices.end(), { l_now + j, l_now + j + 1, l_nxt + j });
-			surface.indices.insert(surface.indices.end(), { l_nxt + j, l_now + j + 1, l_nxt + j + 1 });
+			mesh.indices.insert(mesh.indices.end(), { l_now + j, l_now + j + 1, l_nxt + j });
+			mesh.indices.insert(mesh.indices.end(), { l_nxt + j, l_now + j + 1, l_nxt + j + 1 });
 		}
 	}
 
-	return surface;
+	return mesh;
 }
 
-Surface Surface::evalCylinder(const Curve& profile, const Curve& sweep)
+Mesh Mesh::evalCylinder(const Curve& profile, const Curve& sweep)
 {
-	Surface surface;
+	Mesh mesh;
+	mesh.name="Cylinder";
 
 	if (!checkFlat(profile)){
 		std::cerr << "surfRev profile curve must be flat on xy plane." << std::endl;
-		return surface;
+		return mesh;
 	}
 
 	for (size_t i = 0; i < sweep.size(); ++i) {
@@ -229,7 +252,7 @@ Surface Surface::evalCylinder(const Curve& profile, const Curve& sweep)
 		for (size_t j = 0; j < profile.size(); ++j) {
 			auto V=glm::vec3(M * glm::vec4(profile[j].V,1.0f));
 			auto N=glm::vec3(M_norm * glm::vec4(-profile[j].N,1.0f));
-			surface.vertices.insert(surface.vertices.end(),{
+			mesh.vertices.insert(mesh.vertices.end(),{
 				V.x,V.y,V.z,
 				N.x,N.y,N.z
 			});
@@ -240,15 +263,15 @@ Surface Surface::evalCylinder(const Curve& profile, const Curve& sweep)
 		uint32_t l_now = i * profile.size();
 		uint32_t l_nxt = (i + 1) % sweep.size() * profile.size();
 		for (uint32_t j = 0; j + 1 < profile.size(); ++j) {
-			surface.indices.insert(surface.indices.end(), { l_now + j, l_now + j + 1, l_nxt + j });
-			surface.indices.insert(surface.indices.end(), { l_nxt + j, l_now + j + 1, l_nxt + j + 1 });
+			mesh.indices.insert(mesh.indices.end(), { l_now + j, l_now + j + 1, l_nxt + j });
+			mesh.indices.insert(mesh.indices.end(), { l_nxt + j, l_now + j + 1, l_nxt + j + 1 });
 		}
 	}
 
-	return surface;
+	return mesh;
 }
 
-Surface Surface::evalModel(const char* filename) {
+Mesh Mesh::evalModel(const char* filename) {
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -257,13 +280,14 @@ Surface Surface::evalModel(const char* filename) {
 		throw std::runtime_error(warn + err);
 	}
 
-	Surface surface;
+	Mesh mesh;
+	mesh.name="Model";
 	std::vector<int> cnt(attrib.vertices.size() / 3);
 
 	for (size_t i = 0; i < attrib.vertices.size(); i+=3) {
 		auto V= glm::vec3(attrib.vertices[i],attrib.vertices[i + 1],attrib.vertices[i + 2]);
 		auto N=glm::vec3(0);
-		surface.vertices.insert(surface.vertices.end(),{
+		mesh.vertices.insert(mesh.vertices.end(),{
 			V.x,V.y,V.z,
 			N.x,N.y,N.z
 		});
@@ -280,32 +304,32 @@ Surface Surface::evalModel(const char* filename) {
 					attrib.vertices[3 * ind[j] + 1],
 					attrib.vertices[3 * ind[j] + 2],
 				};
-				surface.indices.push_back(shape.mesh.indices[i + j].vertex_index);
+				mesh.indices.push_back(shape.mesh.indices[i + j].vertex_index);
 			}
 			glm::vec3 a = v[1] - v[0];
 			glm::vec3 b = v[2] - v[0];
 			glm::vec3 normal = glm::normalize(glm::cross(a, b));
 			for (size_t j = 0; j < 3; j++) {
-				surface[ind[j]].N += normal;
+				mesh[ind[j]].N += normal;
 				cnt[ind[j]]++;
 			}
 		}
 	}
-	for (size_t i = 0; i < surface.vertices.size();i++) {
-		surface[i].N /= cnt[i];
+	for (size_t i = 0; i < mesh.vertices.size();i++) {
+		mesh[i].N /= cnt[i];
 	}
-	return surface;
+	return mesh;
 }
 
 #include <shaders/rc.h>
 
-Shader Surface::defaultShader(){
+Shader Mesh::defaultShader(){
 	Shader shader;
 	shader.compile((char*)SURFACE_DEFAULT_VERT_DATA,nullptr,(char*)SURFACE_DEFAULT_FRAG_DATA);
 	return shader;
 }
 
-Shader Surface::defaultShader_N(){
+Shader Mesh::defaultShader_N(){
 	Shader shader;
 	shader.compile(
 		(char*)SURFACE_DEFAULT_N_VERT_DATA,
@@ -315,7 +339,7 @@ Shader Surface::defaultShader_N(){
 	return shader;
 }
 
-Shader Surface::defaultShader_region(){
+Shader Mesh::defaultShader_region(){
 	const char* vert =
 		"#version 330 core\n"
 		"layout (location = 0) in vec3 V;\n"
@@ -342,20 +366,30 @@ Shader Surface::defaultShader_region(){
 	return shader;
 }
 
-void SurfaceTBO::init(const Surface& surface){
-	FaceNum = surface.indices.size() / 3;
-	vertices.init((void*)surface.vertices.data(),surface.vertices.size() * 6 * sizeof(float),GL_R32F);
-	indices.init((void*)surface.indices.data(),surface.indices.size() * sizeof(uint32_t),GL_R32UI);
+Shader Mesh::defaultShader_phone(){
+	Shader shader;
+	shader.compile(
+		(char*)PHONE_DEFAULT_VERT_DATA,
+		nullptr,
+		(char*)PHONE_DEFAULT_FRAG_DATA
+	);
+	return shader;
 }
 
-void SurfaceTBO::use(){
+void MeshTBO::init(const Mesh& mesh){
+	FaceNum = mesh.indices.size() / 3;
+	vertices.init((void*)mesh.vertices.data(),mesh.vertices.size() * 6 * sizeof(float),GL_R32F);
+	indices.init((void*)mesh.indices.data(),mesh.indices.size() * sizeof(uint32_t),GL_R32UI);
+}
+
+void MeshTBO::use(){
 	vertices.bind(1);
 	indices.bind(2);
 }
 
-void SurfaceTBO::release(){
+void MeshTBO::release(){
 	vertices.release();
 	indices.release();
 }
 
-uint32_t SurfaceTBO::getFaceNum(){return FaceNum;}
+uint32_t MeshTBO::getFaceNum(){return FaceNum;}

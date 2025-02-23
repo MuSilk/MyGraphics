@@ -9,14 +9,14 @@ inline bool approx(const glm::vec3& lhs, const glm::vec3& rhs)
 }
 
 void Curve::init(){
-    glObject::init(reinterpret_cast<float*>(vertices.data()),vertices.size()/12,{3,3,3,3});
+    glObject::init(reinterpret_cast<float*>(vertices.data()),vertices.size()/CurvePoint::SIZE,CurvePoint::PARTITION);
 }
 
-CurvePoint& Curve::getPoint(uint32_t index) const{
-	return *(CurvePoint*)(vertices.data()+index*6);
+CurvePoint& Curve::getPoint(size_t index) const{
+	return *(CurvePoint*)(vertices.data()+index*CurvePoint::SIZE);
 }
 
-void Curve::defaultrender(std::map<std::string,Shader>& shaderManager,glm::mat4 model,glm::mat4 view,glm::mat4 proj){
+void Curve::defaultrender(std::map<std::string,Shader>& shaderManager,glm::mat4 model,glm::mat4 view,glm::mat4 proj,glm::vec3 color){
     if(shaderManager.find("CURVE_DEFAULT_SHADER")==shaderManager.end()){
 		shaderManager["CURVE_DEFAULT_SHADER"] = Curve::defaultShader();
 	}
@@ -24,6 +24,7 @@ void Curve::defaultrender(std::map<std::string,Shader>& shaderManager,glm::mat4 
 	shader.use();
 	glm::mat4 mvp=proj*view*model;
 	shader.setMat4("mvp",mvp);
+	shader.setVec3("color",color);
 	glObject::render(GL_LINE_STRIP);
 }
 
@@ -171,6 +172,7 @@ Curve Curve::evalBspline(const std::vector< glm::vec3 >& P, uint32_t steps) {
 
 Curve Curve::evalCircle(float radius, uint32_t steps) {
 	Curve R(steps + 1);
+	R.name="Circle";
 
 	for (unsigned i = 0; i <= steps; ++i)
 	{
@@ -190,8 +192,30 @@ Curve Curve::evalCircle(float radius, uint32_t steps) {
 
 #include<shaders/rc.h>
 Shader Curve::defaultShader() {
+	const char* vert =
+	"#version 330 core\n"
+	"layout (location = 0) in vec3 V;\n"
+	"layout (location = 1) in vec3 T;\n"
+	"layout (location = 2) in vec3 N;\n"
+	"layout (location = 3) in vec3 B;\n"
+
+	"uniform mat4 mvp;\n"
+
+	"void main(){\n"
+    "	gl_Position = mvp*vec4(V,1.0);\n"
+	"}\0";
+
+	const char* frag =
+	"#version 330 core\n"
+
+	"out vec4 outColor;\n"
+	"uniform vec3 color;\n"
+	"void main(){\n"
+	"	outColor = vec4(color,1.0f);\n"
+	"}\0";
+
     Shader shader;
-	shader.compile((char *)CURVE_DEFAULT_VERT_DATA,nullptr,(char *)CURVE_DEFAULT_FRAG_DATA);
+	shader.compile(vert,nullptr,frag);
 	return shader;
 }
 

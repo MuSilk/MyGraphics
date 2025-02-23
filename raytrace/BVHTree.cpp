@@ -2,15 +2,15 @@
 
 #include <algorithm>
 
-void BVHTree::build(const Surface& surface ) {
-	const auto& indices = surface.indices;
-	const auto& vertices = surface.vertices;
+void BVHTree::build(const Mesh& mesh ) {
+	const auto& indices = mesh.indices;
+	const auto& vertices = mesh.vertices;
 
 	for (int i = 0; i < indices.size()/3; i+=1) {
 		bounds.push_back({ i,Bound3d::Union({
-			surface.getPoint(indices[i * 3 + 0]).V,
-			surface.getPoint(indices[i * 3 + 1]).V,
-			surface.getPoint(indices[i * 3 + 2]).V,
+			mesh.getPoint(indices[i * 3 + 0]).V,
+			mesh.getPoint(indices[i * 3 + 1]).V,
+			mesh.getPoint(indices[i * 3 + 2]).V,
 		}) });
 	}
 	recursiveBuild(bounds.begin(),bounds.end());

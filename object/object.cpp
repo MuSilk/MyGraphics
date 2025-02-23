@@ -36,9 +36,9 @@ bool RenderObject::intersect(glm::vec3 RayOrigin,glm::vec3 RayDir,float tmin,flo
     bool flag=false;
     for(size_t i=0;i<clickRegion->indices.size();i+=3){
         Triangle tri;
-        tri[0]=((Surface*)clickRegion)->getPoint(clickRegion->indices[i]).V;
-        tri[1]=((Surface*)clickRegion)->getPoint(clickRegion->indices[i+1]).V;
-        tri[2]=((Surface*)clickRegion)->getPoint(clickRegion->indices[i+2]).V;
+        tri[0]=((Mesh*)clickRegion)->getPoint(clickRegion->indices[i]).V;
+        tri[1]=((Mesh*)clickRegion)->getPoint(clickRegion->indices[i+1]).V;
+        tri[2]=((Mesh*)clickRegion)->getPoint(clickRegion->indices[i+2]).V;
         if(intersect_triangle(tri,lightPoint,lightDir,tminh,newt))flag=true;
     }
 
@@ -72,4 +72,96 @@ bool RenderObject::intersect_triangle(Triangle tri,glm::vec3 RayOrigin,glm::vec3
         return true;
     }
     return false;
+}
+
+#include <object/scene.h>
+#include <glBasic/Camera.h>
+
+RenderObject RenderObject::evalSurface(
+    glm::vec3 pos,DataObject* datasource,
+    ShaderManager& shaderManager,Camera& camera,
+    uint32_t& Width,uint32_t& Height
+){
+    RenderObject obj;
+    obj.position=pos;
+    obj.scale=glm::vec3(1.0f,1.0f,1.0f);
+    obj.rotation=glm::quat(glm::vec3(0.0f,0.0f,0.0f));
+    obj.dataSurface=datasource;
+    obj.clickRegion=datasource;
+
+    obj.render=Scene::defaultrender(shaderManager,&camera,&Width,&Height);
+    obj.render_margin=Scene::defaultrender_region(shaderManager,&camera,&Width,&Height);
+
+    return obj;
+}
+
+PhoneObject PhoneObject::evalMeshObject(
+    glm::vec3 pos,DataObject* datasource,
+    ShaderManager& shaderManager,Camera& camera,
+    uint32_t& Width,uint32_t& Height
+){
+    PhoneObject obj;
+    obj.position=pos;
+    obj.scale=glm::vec3(1.0f,1.0f,1.0f);
+    obj.rotation=glm::quat(glm::vec3(0.0f,0.0f,0.0f));
+    obj.dataSurface=datasource;
+    obj.clickRegion=datasource;
+
+    obj.render=Scene::defaultrender(shaderManager,&camera,&Width,&Height);
+    obj.render_margin=Scene::defaultrender_region(shaderManager,&camera,&Width,&Height);
+
+    obj.render_phone=[&](const RenderObject& thisobj){
+        glm::mat4 model=thisobj.GetModelMatrix();
+        glm::mat4 view=camera.GetViewMatrix();
+        glm::mat4 proj=camera.GetProjectionMatrix(Width,Height);
+        glm::vec3 lightdir=glm::normalize(-camera.Front);
+
+        Light* light=thisobj.curScene->getLight();
+        
+        ((PhoneObject*)&thisobj)->defaultrender_phone(
+            shaderManager,model,view,proj,
+            camera.Position,
+            light,thisobj.curScene->ambientColor
+        );
+    };
+
+    obj.diffuse=new SurfaceColor();
+    obj.specular=new SurfaceColor();
+    obj.shininess=32.0f;
+
+    return obj;
+}
+
+#include <glm/ext.hpp>
+#include <glm/gtx/string_cast.hpp>
+
+void PhoneObject::defaultrender_phone(
+	std::map<std::string,Shader>& shaderManager,
+	glm::mat4 model,glm::mat4 view,glm::mat4 projection,
+	glm::vec3 viewPos,
+	Light* light,
+	glm::vec3 ambientColor){
+
+	if(shaderManager.find("PHONE_DEFAULT_SHADER")==shaderManager.end()){
+		shaderManager["PHONE_DEFAULT_SHADER"] = Mesh::defaultShader_phone();
+	}
+	Shader shader=shaderManager["PHONE_DEFAULT_SHADER"];
+	shader.use();
+
+	shader.setMat4("model",model);
+	shader.setMat4("view",view);
+	shader.setMat4("projection",projection);
+
+	shader.setVec3("viewPos",viewPos);
+	shader.setVec3("material.diffuse",((SurfaceColor*)diffuse)->color);
+	shader.setVec3("material.specular",((SurfaceColor*)specular)->color);
+	shader.set1f("material.shininess",shininess);
+	shader.setVec3("light.position",light->position);
+	shader.setVec3("light.color",light->color);
+	shader.set1f("light.constant",light->constant);
+	shader.set1f("light.linear",light->linear);
+	shader.set1f("light.quadratic",light->quadratic);
+	shader.setVec3("ambientColor",ambientColor);
+
+    ((Mesh*)dataSurface)->render(GL_TRIANGLES);
 }

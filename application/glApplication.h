@@ -40,8 +40,9 @@ private:
     glm::vec2 mousePos;
 
     ImGuiIO* io;
-    bool mouseRightClickMenuVisible=false;
     glm::vec2 mouseRightClickMenuPos;
+    glm::vec2 ViewBoxPos; 
+    glm::vec2 ViewBoxSize;
 
     void initWindow() override;
     void initGraphics() override;
@@ -54,7 +55,8 @@ private:
 
     enum RenderOption{
         RENDEROPTION_COMMON,
-        RENDEROPTION_PHONE
+        RENDEROPTION_PHONE,
+        RENDEROPTION_RAYTRACE
     }renderOption=RENDEROPTION_COMMON;
 
     void GuiRender();

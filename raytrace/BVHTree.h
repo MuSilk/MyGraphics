@@ -1,6 +1,6 @@
 #pragma once
 
-#include <surface/Surface.h>
+#include <surface/Mesh.h>
 
 struct Bound3d{
     glm::vec3 pMin,pMax;
@@ -58,7 +58,7 @@ struct BVHNode{
 class BVHTree{
     typedef std::pair<int32_t,Bound3d> BVHLeafInfo;
 public:
-    void build(const Surface& surface);
+    void build(const Mesh& mesh);
     std::vector<BVHNode> nodearray;
 private:
     std::vector<BVHLeafInfo> bounds;
@@ -69,9 +69,9 @@ private:
 class BVHTreeTBO {
 	glTBO ptr, bound;
 public:
-	void init(const Surface& surface) {
+	void init(const Mesh& mesh) {
 		BVHTree tree;
-		tree.build(surface);
+		tree.build(mesh);
 		std::vector<uint32_t> ptrdata;
 		std::vector<float> bounddata;
 		//std::cout << tree.nodearray.size() << "\n";
