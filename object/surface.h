@@ -25,6 +25,7 @@ public:
 
 class SurfaceTexture:public Surface{
 public:
+    string TextureName;
     Texture2D* texture;
     virtual SurfaceType surfaceType() override{return SurfaceType::TEXTURE;}
 };

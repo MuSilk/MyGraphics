@@ -24,7 +24,6 @@ public:
     MeshPoint& operator[](size_t index) const{return getPoint(index);}
 
     void defaultrender(
-        std::map<std::string,Shader>& shaderManager,
         glm::mat4 model,glm::mat4 view,glm::mat4 projection,
         glm::vec3 viewPos,
         glm::vec3 lightDir=glm::normalize(glm::vec3(-1.0f,1.0f,0.0f)),
@@ -36,7 +35,6 @@ public:
     );
 
     void defaultrender_T(
-        std::map<std::string,Shader>& shaderManager,
         glm::mat4 model,glm::mat4 view,glm::mat4 projection,
         glm::vec3 viewPos,
         glm::vec3 lightDir=glm::normalize(glm::vec3(-1.0f,1.0f,0.0f)),
@@ -48,7 +46,6 @@ public:
     );
 
     void defaultrender_region(
-        std::map<std::string,Shader>& shaderManager,
         glm::mat4 mvp,
         glm::vec3 color
     );
@@ -60,12 +57,6 @@ public:
 	static Mesh evalSweepSurf(const Curve& profile, unsigned steps);
 	static Mesh evalCylinder(const Curve& profile, const Curve& sweep);
 	static Mesh evalModel(const char* filename);
-
-public:
-    static Shader defaultShader();
-    static Shader defaultShader_N();
-    static Shader defaultShader_region(); 
-    static Shader defaultShader_phone();
 };
 
 class MeshTBO{

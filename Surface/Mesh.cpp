@@ -6,6 +6,8 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <glBasic/ShaderManager.h>
+
 void Mesh::init(){
     glObject::init(reinterpret_cast<float*>(vertices.data()),vertices.size()/MeshPoint::SIZE,MeshPoint::PARTITION,indices);
 }
@@ -15,65 +17,53 @@ MeshPoint& Mesh::getPoint(size_t index) const{
 }
 
 void Mesh::defaultrender(
-	std::map<std::string,Shader>& shaderManager,
 	glm::mat4 model,glm::mat4 view,glm::mat4 projection,
 	glm::vec3 viewPos,glm::vec3 lightDir,
 	glm::vec3 materialDiffuse,glm::vec3 materialSpecular,float materialShininess,
 	glm::vec3 lightColor,glm::vec3 ambientColor){
 
-	if(shaderManager.find("SURFACE_DEFAULT_SHADER")==shaderManager.end()){
-		shaderManager["SURFACE_DEFAULT_SHADER"] = Mesh::defaultShader();
-	}
-	Shader shader=shaderManager["SURFACE_DEFAULT_SHADER"];
-	shader.use();
+	auto shader=ShaderManagerv1::getInstance().getShader(ShaderType::SHADER_MESH_DEFAULT);
+	shader->use();
 
-    shader.setMat4("model",model);
-    shader.setMat4("view",view);
-    shader.setMat4("projection",projection);
+    shader->setMat4("model",model);
+    shader->setMat4("view",view);
+    shader->setMat4("projection",projection);
 
-    shader.setVec3("viewPos",viewPos);
-    shader.setVec3("material.diffuse",materialDiffuse);
-    shader.setVec3("material.specular",materialSpecular);
-    shader.set1f("material.shininess",20.0f);
-    shader.setVec3("light.direction",lightDir);
-    shader.setVec3("light.color",lightColor);
-    shader.setVec3("ambientColor",ambientColor);
+    shader->setVec3("viewPos",viewPos);
+    shader->setVec3("material.diffuse",materialDiffuse);
+    shader->setVec3("material.specular",materialSpecular);
+    shader->set1f("material.shininess",20.0f);
+    shader->setVec3("light.direction",lightDir);
+    shader->setVec3("light.color",lightColor);
+    shader->setVec3("ambientColor",ambientColor);
 
     render(GL_TRIANGLES);
 }
 
 void Mesh::defaultrender_T(
-	std::map<std::string,Shader>& shaderManager,
 	glm::mat4 model,glm::mat4 view,glm::mat4 projection,
 	glm::vec3 viewPos,glm::vec3 lightDir,
 	glm::vec3 materialDiffuse,glm::vec3 materialSpecular,float materialShininess,
 	glm::vec3 lightColor,glm::vec3 ambientColor){
 
-	defaultrender(shaderManager,model,view,projection,viewPos,lightDir,materialDiffuse,materialSpecular,materialShininess,lightColor,ambientColor);
+	defaultrender(model,view,projection,viewPos,lightDir,materialDiffuse,materialSpecular,materialShininess,lightColor,ambientColor);
 	
-	if(shaderManager.find("SURFACE_DEFAULT_SHADER_N")==shaderManager.end()){
-		shaderManager["SURFACE_DEFAULT_SHADER_N"] = Mesh::defaultShader_N();
-	}
-	Shader shader=shaderManager["SURFACE_DEFAULT_SHADER_N"];
-	shader.use();
-    shader.setMat4("model",model);
-    shader.setMat4("view",view);
-    shader.setMat4("projection",projection);
+	auto shader=ShaderManagerv1::getInstance().getShader(ShaderType::SHADER_MESH_DEFAULT_NORMAL);
+	shader->use();
+    shader->setMat4("model",model);
+    shader->setMat4("view",view);
+    shader->setMat4("projection",projection);
 	glObject::render(GL_TRIANGLES);
 }
 
 void Mesh::defaultrender_region(
-	std::map<std::string,Shader>& shaderManager,
 	glm::mat4 mvp,
 	glm::vec3 color){
 
-	if(shaderManager.find("SURFACE_DEFAULT_SHADER_REGION")==shaderManager.end()){
-		shaderManager["SURFACE_DEFAULT_SHADER_REGION"] = Mesh::defaultShader_region();
-	}
-	Shader shader=shaderManager["SURFACE_DEFAULT_SHADER_REGION"];
-	shader.use();
-	shader.setMat4("mvp",mvp);
-	shader.setVec3("color",color);
+	auto shader=ShaderManagerv1::getInstance().getShader(ShaderType::SHADER_MESH_DEFAULT_REGION);
+	shader->use();
+	shader->setMat4("mvp",mvp);
+	shader->setVec3("color",color);
 	render(GL_TRIANGLES);
 }
 
@@ -149,7 +139,7 @@ Mesh Mesh::evalCircle(float radius,uint32_t steps){
 	for(size_t i=0;i<c.size();i++){
 		R.vertices.insert(R.vertices.end(),{
 			c[i].V.x,c[i].V.y,c[i].V.z,
-			c[i].N.x,c[i].N.y,c[i].N.z,
+			c[i].B.x,c[i].B.y,c[i].B.z,
 		});
 	}
 	for(size_t i=1;i+1<c.size();i++){
@@ -315,66 +305,13 @@ Mesh Mesh::evalModel(const char* filename) {
 			}
 		}
 	}
-	for (size_t i = 0; i < mesh.vertices.size();i++) {
+	for (size_t i = 0; i < mesh.size();i++) {
 		mesh[i].N /= cnt[i];
 	}
 	return mesh;
 }
 
 #include <shaders/rc.h>
-
-Shader Mesh::defaultShader(){
-	Shader shader;
-	shader.compile((char*)SURFACE_DEFAULT_VERT_DATA,nullptr,(char*)SURFACE_DEFAULT_FRAG_DATA);
-	return shader;
-}
-
-Shader Mesh::defaultShader_N(){
-	Shader shader;
-	shader.compile(
-		(char*)SURFACE_DEFAULT_N_VERT_DATA,
-		(char*)SURFACE_DEFAULT_N_GEOM_DATA,
-		(char*)SURFACE_DEFAULT_N_FRAG_DATA
-	);
-	return shader;
-}
-
-Shader Mesh::defaultShader_region(){
-	const char* vert =
-		"#version 330 core\n"
-		"layout (location = 0) in vec3 V;\n"
-		"layout (location = 1) in vec3 N;\n"
-		"uniform mat4 mvp;"
-		"uniform vec3 color;"
-		"layout (location = 0) out vec3 fragColor;\n"
-		"void main(){\n"
-		"    gl_Position = mvp*vec4(V,1.0);\n"
-		"    fragColor = color;\n"
-		"}\0";
-
-	const char* frag =
-		"#version 330 core\n"
-		"layout(location=0) in vec3 fragColor;\n"
-		"out vec4 FragColor;\n"
-		"void main()\n"
-		"{\n"
-		"    FragColor = vec4(fragColor, 1.0f);\n"
-		"}\0";
-	
-	Shader shader;
-	shader.compile(vert,nullptr,frag);
-	return shader;
-}
-
-Shader Mesh::defaultShader_phone(){
-	Shader shader;
-	shader.compile(
-		(char*)PHONE_DEFAULT_VERT_DATA,
-		nullptr,
-		(char*)PHONE_DEFAULT_FRAG_DATA
-	);
-	return shader;
-}
 
 void MeshTBO::init(const Mesh& mesh){
 	FaceNum = mesh.indices.size() / 3;

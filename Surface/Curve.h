@@ -28,11 +28,10 @@ public:
 
     void init();
     void defaultrender(
-        std::map<std::string,Shader>& shaderManager,
         glm::mat4 model,glm::mat4 view,glm::mat4 projection,
         glm::vec3 color=glm::vec3(1.0f,1.0f,1.0f)
     );
-    void defaultrender_TNB(std::map<std::string,Shader>& shaderManager,glm::mat4 model,glm::mat4 view,glm::mat4 projection);
+    void defaultrender_TNB(glm::mat4 model,glm::mat4 view,glm::mat4 projection);
 
     static Curve evalBezier(const std::vector<glm::vec3>& P,uint32_t steps);
     static Curve evalBspline(const std::vector<glm::vec3>& P,uint32_t steps);
@@ -40,5 +39,4 @@ public:
 
 private:
     static Shader defaultShader();
-    static Shader defaultShader_TNB();
 };

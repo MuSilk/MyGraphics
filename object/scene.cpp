@@ -113,10 +113,9 @@ void Scene::update(){
 }
 
 std::function<void(const RenderObject&)> Scene::defaultrender(
-    std::map<std::string,Shader>& shaderManager,
     Camera* camera,uint32_t* width,uint32_t* height){
 
-    return [&shaderManager,camera,width,height](const RenderObject& thisobj){
+    return [camera,width,height](const RenderObject& thisobj){
         glm::mat4 model=thisobj.GetModelMatrix();
         glm::mat4 view=camera->GetViewMatrix();
         glm::mat4 proj=camera->GetProjectionMatrix(*width,*height);
@@ -129,10 +128,10 @@ std::function<void(const RenderObject&)> Scene::defaultrender(
 
             switch (thisobj.dataSurface->type){
             case DataType::MESH:
-                ((Mesh*)thisobj.dataSurface)->defaultrender(shaderManager,model,view,proj,camera->Position,lightdir);
+                ((Mesh*)thisobj.dataSurface)->defaultrender(model,view,proj,camera->Position,lightdir);
                 break;
             case DataType::CURVE:
-                ((Curve*)thisobj.dataSurface)->defaultrender(shaderManager,model,view,proj);
+                ((Curve*)thisobj.dataSurface)->defaultrender(model,view,proj);
                 break;
             default:
                 break;
@@ -143,10 +142,10 @@ std::function<void(const RenderObject&)> Scene::defaultrender(
         else {
             switch (thisobj.dataSurface->type){
             case DataType::MESH:
-                ((Mesh*)thisobj.dataSurface)->defaultrender(shaderManager,model,view,proj,camera->Position,lightdir);
+                ((Mesh*)thisobj.dataSurface)->defaultrender(model,view,proj,camera->Position,lightdir);
                 break;
             case DataType::CURVE:
-                ((Curve*)thisobj.dataSurface)->defaultrender(shaderManager,model,view,proj);
+                ((Curve*)thisobj.dataSurface)->defaultrender(model,view,proj);
                 break;
             default:
                 break;
@@ -157,9 +156,8 @@ std::function<void(const RenderObject&)> Scene::defaultrender(
 }
 
 std::function<void(const RenderObject&)> Scene::defaultrender_region(
-    std::map<std::string,Shader>& shaderManager,
     Camera* camera,uint32_t* width,uint32_t* height){
-    return [&shaderManager,camera,width,height](const RenderObject& thisobj){
+    return [camera,width,height](const RenderObject& thisobj){
         auto scale=thisobj.scale;
         scale*=1.03f;
         glm::mat4 model=thisobj.GetTranslateMatrix()*thisobj.GetRotateMatrix()*glm::scale(glm::mat4(1.0f),scale);
@@ -168,10 +166,10 @@ std::function<void(const RenderObject&)> Scene::defaultrender_region(
 
         switch (thisobj.dataSurface->type){
             case DataType::MESH:
-                ((Mesh*)thisobj.dataSurface)->defaultrender_region(shaderManager,proj*view*model,glm::vec3(1.0f,1.0f,0.0f));
+                ((Mesh*)thisobj.dataSurface)->defaultrender_region(proj*view*model,glm::vec3(1.0f,1.0f,0.0f));
                 break;
             case DataType::CURVE:
-                ((Curve*)thisobj.dataSurface)->defaultrender(shaderManager,model,view,proj,glm::vec3(1.0f,1.0f,0.0f));
+                ((Curve*)thisobj.dataSurface)->defaultrender(model,view,proj,glm::vec3(1.0f,1.0f,0.0f));
                 break;
             default:
                 break;

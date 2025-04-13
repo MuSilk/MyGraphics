@@ -28,7 +28,7 @@ private:
     uint32_t Width=WIDTH,Height=HEIGHT;
     GLFWwindow* window;
 
-    std::map<std::string,Shader> Shaders;
+    std::map<std::string,Texture2D> Textures;
     std::map<std::string,DataObject*> DataObjects;
 
     Scene MainScene;
@@ -41,6 +41,7 @@ private:
 
     ImGuiIO* io;
     glm::vec2 mouseRightClickMenuPos;
+    glm::vec2 mouseLeftClickPos;
     glm::vec2 ViewBoxPos; 
     glm::vec2 ViewBoxSize;
 

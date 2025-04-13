@@ -4,7 +4,6 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <stb_image.h>
 
 using namespace std;
 
@@ -22,15 +21,7 @@ public:
 	GLuint Filter_Min = GL_LINEAR;
 	GLuint Filter_Max = GL_LINEAR;
 
-    void Generate(const char* file) {
-		int height, width, channels;
-		stbi_uc* data = stbi_load(file, &width, &height, &channels, STBI_rgb_alpha);
-		if (data == nullptr) {
-			std::cout << "file not find\n";
-		}
-		Generate(width, height, data);
-		stbi_image_free(data);
-	}
+    void Generate(const char* file);
 
 	void Generate(int width, int height,const unsigned char* data) {
 		glGenTextures(1, &ID);

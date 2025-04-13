@@ -2,8 +2,12 @@
 
 #include <stdexcept>
 #include <vector>
+#include <filesystem>
 
-#include "imgui/imgui_internal.h"
+#include <imgui/imgui_internal.h>
+#include <nfd.h>
+
+#include <glBasic/ShaderManager.h>
 
 #define FRAME_PRE_SECOND 120
 
@@ -71,11 +75,10 @@ void glApplication::initSettings(){
 #include "glBasic/glDynamicObject.h"
 
 void glApplication::createShaders(){
-    Shaders["test"]=Shader::Shader_3d_single_color();
+
 }
 
 RayTrace ray_trace;
-glDynamicObject ray;
 void glApplication::createDataBuffer(){
 
     // ray_trace.init(Width,Height);
@@ -91,7 +94,13 @@ void glApplication::createDataBuffer(){
     solidcircle->init();
     DataObjects["solid_circle"]=solidcircle;
 
-    ray.init(2,{3});
+    Mesh* sphere=new Mesh(Mesh::evalSphere(1.0f,100));
+    sphere->init();
+    DataObjects["sphere"]=sphere;
+
+    Mesh* quad=new Mesh(Mesh::evalQuad());
+    quad->init();
+    DataObjects["quad"]=quad;
 }
 
 void glApplication::mainLoop(){
@@ -134,7 +143,7 @@ void glApplication::GuiRender(){
     const char* UI_PROJECT_BOX  = u8"project##ui.project";
     const char* UI_PROPERTY_BOX = u8"property##ui.property";
     const char* UI_TOOL_BOX     = u8"tools##ui.tools";
-    const char* UI_MESSAGE_BOX  = u8"message##ui.message";
+    const char* UI_RESOURCE_BOX  = u8"resource##ui.resource";
     const char* UI_LOG_BOX      = u8"log##ui.log";
     const char* UI_VIEW_BOX     = u8"##ui.view";
 
@@ -164,6 +173,45 @@ void glApplication::GuiRender(){
             if (ImGui::MenuItem("Open", "Ctrl+O")) {  }
             if (ImGui::MenuItem("Save", "Ctrl+S")) {  }
             if (ImGui::MenuItem("Close", "Ctrl+W")) {  }
+            if (ImGui::BeginMenu("Import")){
+                if(ImGui::MenuItem("model","*.obj")){
+                    char* path=nullptr;
+                    if(NFD_OpenDialog("obj",NULL,&path)==NFD_OKAY){
+                        Mesh* mesh=new Mesh(Mesh::evalModel(path));
+                        mesh->init();
+                        std::filesystem::path p(path);
+                        auto filename=p.filename().string();
+                        std::string name=filename;
+                        if(DataObjects.find(name)!=DataObjects.end()){
+                            for(size_t i=1;;i++){
+                                name=filename+"("+std::to_string(i)+")";
+                                if(DataObjects.find(name)==DataObjects.end())break;
+                            }
+                        }
+                        DataObjects[name]=mesh;
+                        free(path);
+                    }
+                }
+                if(ImGui::MenuItem("Texture","*.png/*.jpg")){
+                    char* path=nullptr;
+                    if(NFD_OpenDialog("png;jpg",NULL,&path)==NFD_OKAY){
+                        Texture2D texture;
+                        texture.Generate(path);
+                        std::filesystem::path p(path);
+                        auto filename=p.filename().string();
+                        std::string name=filename;
+                        if(Textures.find(name)!=Textures.end()){
+                            for(size_t i=1;;i++){
+                                name=filename+"("+std::to_string(i)+")";
+                                if(Textures.find(name)==Textures.end())break;
+                            }
+                        }
+                        Textures[name]=texture;
+                        free(path);
+                    }
+                }
+                ImGui::EndMenu();
+            }
 
             ImGui::EndMenu();
         }
@@ -211,8 +259,8 @@ void glApplication::GuiRender(){
             ImGui::DockBuilderDockWindow(UI_TOOL_BOX, leftNode); 
             ImGui::DockBuilderDockWindow(UI_PROPERTY_BOX, rightBottomNode);  
             ImGui::DockBuilderDockWindow(UI_PROJECT_BOX, rightTopNode);           
-  
-            ImGui::DockBuilderDockWindow(UI_MESSAGE_BOX, bottomNode);      
+            ImGui::DockBuilderDockWindow(UI_RESOURCE_BOX, rightTopNode);      
+
             ImGui::DockBuilderDockWindow(UI_LOG_BOX, bottomNode);
   
             ImGui::DockBuilderDockWindow(UI_VIEW_BOX, root);
@@ -294,8 +342,39 @@ void glApplication::GuiRender(){
                 }
                 auto phone_ptr=(PhoneObject*)obj;
                 if(ImGui::CollapsingHeader("Surface",ImGuiTreeNodeFlags_DefaultOpen)){
-                    ImGui::ColorEdit3("diffuse",(float*)&(((SurfaceColor*)(phone_ptr->diffuse))->color));
-                    ImGui::ColorEdit3("specular",(float*)&(((SurfaceColor*)(phone_ptr->specular))->color));
+                    const char* type[] = { "SingleColor", "Texture"};
+                    static int diffuse_selected = ((int)phone_ptr->diffuse->surfaceType())-1; 
+                    static int specular_selected = ((int)phone_ptr->specular->surfaceType())-1;
+
+                    ImGui::SeparatorText("Diffuse");
+                    if (ImGui::Combo("Type##diffuse.type", &diffuse_selected, type, IM_ARRAYSIZE(type)));
+                    switch (diffuse_selected){
+                        case 0:{
+                            ImGui::ColorEdit3("Color##diffuse.color",(float*)&(((SurfaceColor*)(phone_ptr->diffuse))->color));
+                            break;
+                        }
+                        case 1:{
+                            std::vector<const char*> texture_list={"None"};
+                            for(auto& [name,texture]:Textures)texture_list.push_back(name.c_str());
+                            static int selected=0;
+                            // string texture_name=((SurfaceTexture*)(phone_ptr->diffuse))->TextureName;
+                            string texture_name="";
+                            for(int i=1;i<texture_list.size();i++){
+                                if(texture_list[i]==texture_name){
+                                    selected=i;
+                                    break;
+                                }
+                            }
+                            if (ImGui::Combo("Texture##diffuse.texture", &selected, texture_list.data(), texture_list.size()));
+                            break;
+                        }
+                    }
+                    
+                    ImGui::SeparatorText("Specular");
+                    if (ImGui::Combo("Type##specular.type", &specular_selected, type, IM_ARRAYSIZE(type)));
+                    ImGui::ColorEdit3("Color##specular.color",(float*)&(((SurfaceColor*)(phone_ptr->specular))->color));
+                    
+                    ImGui::SeparatorText("Shininess");
                     ImGui::InputFloat("shininess",&(phone_ptr->shininess));
                 }
             }
@@ -319,9 +398,27 @@ void glApplication::GuiRender(){
     }
     ImGui::End();
 
-    if(ImGui::Begin(UI_MESSAGE_BOX)){
-        ImGui::LabelText("label","test");
-        ImGui::Button("click me and get nothing");
+    if(ImGui::Begin(UI_RESOURCE_BOX)){
+        if(ImGui::CollapsingHeader("Models",ImGuiTreeNodeFlags_DefaultOpen)){
+            for(auto& [name,obj]:DataObjects){
+                auto tag=name+"##RESOURCE";
+                if(ImGui::Selectable(tag.c_str())){}
+                if(ImGui::IsItemHovered()){
+                    if(ImGui::BeginDragDropSource()){
+                        ImGui::SetDragDropPayload("MODEL_NAME",name.c_str(),(name.length() + 1) * sizeof(char));
+                        ImGui::Text(name.c_str());
+                        ImGui::EndDragDropSource();
+                    }
+                }
+            }
+        }
+        if(ImGui::CollapsingHeader("Textures",ImGuiTreeNodeFlags_DefaultOpen)){
+            for(auto& [name,texture]:Textures){
+                if(ImGui::Selectable(name.c_str())){
+
+                }
+            }
+        }
     }
     ImGui::End();
 
@@ -339,17 +436,26 @@ void glApplication::GuiRender(){
         ViewBoxPos  = imgui2glm(ImGui::GetWindowPos());
         ViewBoxSize = imgui2glm(ImGui::GetWindowSize());
 
+        ImGui::Dummy(ImGui::GetWindowSize());
+
+        if (ImGui::BeginDragDropTarget()){
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_NAME")){
+                PhoneObject obj=PhoneObject::evalMeshObject(
+                    MainCamera.GetPointPosition(mousePos,20.0f,Width,Height),
+                    DataObjects[(char*)payload->Data],
+                    MainCamera,Width,Height
+                );
+                MainScene.addObject(obj);
+            }
+            ImGui::EndDragDropTarget();
+        }
+
         if(ImGui::BeginPopupContextWindow()){
             if(ImGui::MenuItem("Create Cube",NULL)){
-                // RenderObject obj=RenderObject::evalSurface(
-                //     MainCamera.GetPointPosition(mouseRightClickMenuPos,20.0f,Width,Height),
-                //     DataObjects["cube"],
-                //     Shaders,MainCamera,Width,Height
-                // );
                 PhoneObject obj=PhoneObject::evalMeshObject(
                     MainCamera.GetPointPosition(mouseRightClickMenuPos,20.0f,Width,Height),
                     DataObjects["cube"],
-                    Shaders,MainCamera,Width,Height
+                    MainCamera,Width,Height
                 );
                 MainScene.addObject(obj);
             }
@@ -361,8 +467,8 @@ void glApplication::GuiRender(){
                 obj.dataSurface=DataObjects["circle"];
                 obj.clickRegion=DataObjects["solid_circle"];
 
-                obj.render=Scene::defaultrender(Shaders,&MainCamera,&Width,&Height);
-                obj.render_margin=Scene::defaultrender_region(Shaders,&MainCamera,&Width,&Height);
+                obj.render=Scene::defaultrender(&MainCamera,&Width,&Height);
+                obj.render_margin=Scene::defaultrender_region(&MainCamera,&Width,&Height);
 
                 obj.update=[&](RenderObject& thisobj){
                     auto z=glm::normalize(MainCamera.Position-thisobj.position);
@@ -423,7 +529,7 @@ void glApplication::EngineRender(){
 }
 
 void glApplication::cleanUp(){
-    for(auto& shader:Shaders)shader.second.release();
+    ShaderManagerv1::cleanUp();
     glfwTerminate();
 }
 
@@ -460,7 +566,10 @@ void glApplication::dragSelectObjects(glm::vec2 mouseMovement){
     auto center=MainScene.getObjectsSelectCenter();
     auto distance=glm::dot(center-MainCamera.Position,MainCamera.Front);
     glm::vec3 translation=MainCamera.Right*mouseMovement.x*distance*grid.x+MainCamera.Up*mouseMovement.y*distance*grid.y;
-    MainScene.dragSelectObjects(translation);
+    
+    if(ImRect(glm2imgui(ViewBoxPos),glm2imgui(ViewBoxPos+ViewBoxSize)).Contains(glm2imgui(mouseLeftClickPos))){
+        MainScene.dragSelectObjects(translation);
+    }
 }
 
 void glApplication::cursorPosCallback(GLFWwindow* window, double xposIn, double yposIn){
@@ -508,14 +617,20 @@ void glApplication::mouseButtonCallback(GLFWwindow* window, int button, int acti
     if(button==GLFW_MOUSE_BUTTON_RIGHT && action==GLFW_PRESS && app->MouseEnabled){
         app->mouseRightClickMenuPos=app->mousePos;
     }
+    if(button==GLFW_MOUSE_BUTTON_LEFT && action==GLFW_PRESS && app->MouseEnabled){
+        app->mouseLeftClickPos=app->mousePos;
+    }
     if(button==GLFW_MOUSE_BUTTON_LEFT && action==GLFW_PRESS){
         if(ImRect(glm2imgui(app->ViewBoxPos),glm2imgui(app->ViewBoxPos+app->ViewBoxSize)).Contains(glm2imgui(app->mousePos))){
-            app->MainScene.clearSelcectObjects();
             auto dir=app->MainCamera.GetDirection(app->mousePos,app->Width,app->Height);
-            uint32_t idt;
+            uint32_t idt=-1;
             float t=std::numeric_limits<float>::max();
-            if(app->MainScene.intersect(app->MainCamera.Position,dir,0.1f,t,idt)){
+            if(app->MainScene.intersect(app->MainCamera.Position,dir,0.1f,t,idt)&&!app->MainScene.Objects[idt]->selected){
+                app->MainScene.clearSelcectObjects();
                 app->MainScene.selectObject(idt);
+            }
+            else if(idt==-1){
+                app->MainScene.clearSelcectObjects();
             }
         }
     }

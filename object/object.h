@@ -59,8 +59,7 @@ private:
 public:
     static RenderObject evalSurface(
         glm::vec3 pos,DataObject* datasource,
-        ShaderManager& shaderManager,Camera& camera,
-        uint32_t& Width,uint32_t& Height);
+        Camera& camera,uint32_t& Width,uint32_t& Height);
 };
 
 class Light:public RenderObject{
@@ -79,11 +78,9 @@ public:
 
     static PhoneObject evalMeshObject(
         glm::vec3 pos,DataObject* datasource,
-        ShaderManager& shaderManager,Camera& camera,
-        uint32_t& Width,uint32_t& Height);
+        Camera& camera,uint32_t& Width,uint32_t& Height);
 
     void defaultrender_phone(
-        std::map<std::string,Shader>& shaderManager,
         glm::mat4 model,glm::mat4 view,glm::mat4 projection,
         glm::vec3 viewPos,
         Light* light,

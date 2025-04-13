@@ -2,6 +2,8 @@
 
 #include <glm/gtc/constants.hpp>
 
+#include "glBasic/ShaderManager.h"
+
 inline bool approx(const glm::vec3& lhs, const glm::vec3& rhs)
 {
 	const float eps = 1e-8f;
@@ -16,28 +18,22 @@ CurvePoint& Curve::getPoint(size_t index) const{
 	return *(CurvePoint*)(vertices.data()+index*CurvePoint::SIZE);
 }
 
-void Curve::defaultrender(std::map<std::string,Shader>& shaderManager,glm::mat4 model,glm::mat4 view,glm::mat4 proj,glm::vec3 color){
-    if(shaderManager.find("CURVE_DEFAULT_SHADER")==shaderManager.end()){
-		shaderManager["CURVE_DEFAULT_SHADER"] = Curve::defaultShader();
-	}
-	Shader shader=shaderManager["CURVE_DEFAULT_SHADER"];
-	shader.use();
+void Curve::defaultrender(glm::mat4 model,glm::mat4 view,glm::mat4 proj,glm::vec3 color){
+	auto shader=ShaderManagerv1::getInstance().getShader(ShaderType::SHADER_CURVE_DEFAULT);
+	shader->use();
 	glm::mat4 mvp=proj*view*model;
-	shader.setMat4("mvp",mvp);
-	shader.setVec3("color",color);
+	shader->setMat4("mvp",mvp);
+	shader->setVec3("color",color);
 	glObject::render(GL_LINE_STRIP);
 }
 
-void Curve::defaultrender_TNB(std::map<std::string,Shader>& shaderManager,glm::mat4 model,glm::mat4 view,glm::mat4 proj){
-	defaultrender(shaderManager,model,view,proj);
-	if(shaderManager.find("CURVE_DEFAULT_SHADER_TNB")==shaderManager.end()){
-		shaderManager["CURVE_DEFAULT_SHADER_TNB"] = Curve::defaultShader_TNB();
-	}
-	Shader shader=shaderManager["CURVE_DEFAULT_SHADER_TNB"];
-    shader.use();
-    shader.setMat4("model",glm::mat4(1.0f));
-    shader.setMat4("view",view);
-    shader.setMat4("projection",proj);
+void Curve::defaultrender_TNB(glm::mat4 model,glm::mat4 view,glm::mat4 proj){
+	defaultrender(model,view,proj);
+	auto shader=ShaderManagerv1::getInstance().getShader(ShaderType::SHADER_CURVE_DEFAULT_VECTOR);
+    shader->use();
+    shader->setMat4("model",glm::mat4(1.0f));
+    shader->setMat4("view",view);
+    shader->setMat4("projection",proj);
 	glObject::render(GL_POINTS);
 }
 
@@ -216,15 +212,5 @@ Shader Curve::defaultShader() {
 
     Shader shader;
 	shader.compile(vert,nullptr,frag);
-	return shader;
-}
-
-Shader Curve::defaultShader_TNB(){
-	Shader shader;
-	shader.compile(
-		(char *)CURVE_DEFAULT_TNB_VERT_DATA,
-		(char *)CURVE_DEFAULT_TNB_GEOM_DATA,
-		(char *)CURVE_DEFAULT_TNB_FRAG_DATA
-	);
 	return shader;
 }

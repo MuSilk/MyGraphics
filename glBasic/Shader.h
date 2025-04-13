@@ -65,12 +65,4 @@ public:
 	static Shader Shader_3drgb();
 	static Shader Shader_3d_single_color();
 	static Shader Shader_v3c3mvp();
-	static Shader Shader_curve();
-	static Shader Shader_surface();
-	static Shader Shader_surface_phone();
-	static Shader Shader_ray_trace();
-	static Shader Shader_screen();
 };
-
-#include <map>
-typedef std::map<std::string,Shader> ShaderManager;

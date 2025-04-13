@@ -42,10 +42,8 @@ public:
     void render_phone();
 
     static std::function<void(const RenderObject&)> defaultrender(
-        std::map<std::string,Shader>& shaderManager,
         Camera* camera,uint32_t* width,uint32_t* height);
 
     static std::function<void(const RenderObject&)> defaultrender_region(
-        std::map<std::string,Shader>& shaderManager,
         Camera* camera,uint32_t* width,uint32_t* height);
 };
