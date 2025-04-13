@@ -16,14 +16,14 @@ enum class ShaderType{
 };
 
 
-class ShaderManagerv1 {
+class ShaderManager {
 public:
-    static ShaderManagerv1& getInstance(){
-        static ShaderManagerv1 instance;
+    static ShaderManager& getInstance(){
+        static ShaderManager instance;
         return instance;
     }
-    ShaderManagerv1(const ShaderManagerv1&) = delete;
-    ShaderManagerv1& operator=(const ShaderManagerv1&) = delete;
+    ShaderManager(const ShaderManager&) = delete;
+    ShaderManager& operator=(const ShaderManager&) = delete;
 
     std::shared_ptr<Shader> getShader(ShaderType type){
         if(Shaders.find(type)!=Shaders.end())return Shaders[type];
@@ -38,7 +38,7 @@ public:
     }
 
 private:
-    ShaderManagerv1(){}
+    ShaderManager(){}
     std::unordered_map<ShaderType, std::shared_ptr<Shader>> Shaders;
     static std::shared_ptr<Shader> createShader(ShaderType type);
 };

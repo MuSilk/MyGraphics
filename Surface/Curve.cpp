@@ -19,7 +19,7 @@ CurvePoint& Curve::getPoint(size_t index) const{
 }
 
 void Curve::defaultrender(glm::mat4 model,glm::mat4 view,glm::mat4 proj,glm::vec3 color){
-	auto shader=ShaderManagerv1::getInstance().getShader(ShaderType::SHADER_CURVE_DEFAULT);
+	auto shader=ShaderManager::getInstance().getShader(ShaderType::SHADER_CURVE_DEFAULT);
 	shader->use();
 	glm::mat4 mvp=proj*view*model;
 	shader->setMat4("mvp",mvp);
@@ -29,7 +29,7 @@ void Curve::defaultrender(glm::mat4 model,glm::mat4 view,glm::mat4 proj,glm::vec
 
 void Curve::defaultrender_TNB(glm::mat4 model,glm::mat4 view,glm::mat4 proj){
 	defaultrender(model,view,proj);
-	auto shader=ShaderManagerv1::getInstance().getShader(ShaderType::SHADER_CURVE_DEFAULT_VECTOR);
+	auto shader=ShaderManager::getInstance().getShader(ShaderType::SHADER_CURVE_DEFAULT_VECTOR);
     shader->use();
     shader->setMat4("model",glm::mat4(1.0f));
     shader->setMat4("view",view);

@@ -141,7 +141,7 @@ void PhoneObject::defaultrender_phone(
 	Light* light,
 	glm::vec3 ambientColor){
 
-    auto shader=ShaderManagerv1::getInstance().getShader(ShaderType::SHADER_PHONE);
+    auto shader=ShaderManager::getInstance().getShader(ShaderType::SHADER_PHONE);
 	shader->use();
 
 	shader->setMat4("model",model);

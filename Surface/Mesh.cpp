@@ -22,7 +22,7 @@ void Mesh::defaultrender(
 	glm::vec3 materialDiffuse,glm::vec3 materialSpecular,float materialShininess,
 	glm::vec3 lightColor,glm::vec3 ambientColor){
 
-	auto shader=ShaderManagerv1::getInstance().getShader(ShaderType::SHADER_MESH_DEFAULT);
+	auto shader=ShaderManager::getInstance().getShader(ShaderType::SHADER_MESH_DEFAULT);
 	shader->use();
 
     shader->setMat4("model",model);
@@ -48,7 +48,7 @@ void Mesh::defaultrender_T(
 
 	defaultrender(model,view,projection,viewPos,lightDir,materialDiffuse,materialSpecular,materialShininess,lightColor,ambientColor);
 	
-	auto shader=ShaderManagerv1::getInstance().getShader(ShaderType::SHADER_MESH_DEFAULT_NORMAL);
+	auto shader=ShaderManager::getInstance().getShader(ShaderType::SHADER_MESH_DEFAULT_NORMAL);
 	shader->use();
     shader->setMat4("model",model);
     shader->setMat4("view",view);
@@ -60,7 +60,7 @@ void Mesh::defaultrender_region(
 	glm::mat4 mvp,
 	glm::vec3 color){
 
-	auto shader=ShaderManagerv1::getInstance().getShader(ShaderType::SHADER_MESH_DEFAULT_REGION);
+	auto shader=ShaderManager::getInstance().getShader(ShaderType::SHADER_MESH_DEFAULT_REGION);
 	shader->use();
 	shader->setMat4("mvp",mvp);
 	shader->setVec3("color",color);

@@ -529,7 +529,7 @@ void glApplication::EngineRender(){
 }
 
 void glApplication::cleanUp(){
-    ShaderManagerv1::cleanUp();
+    ShaderManager::cleanUp();
     glfwTerminate();
 }
 

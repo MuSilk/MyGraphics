@@ -1,7 +1,7 @@
 #include "ShaderManager.h"
 
 #include <shaders/rc.h>
-std::shared_ptr<Shader> ShaderManagerv1::createShader(ShaderType type){
+std::shared_ptr<Shader> ShaderManager::createShader(ShaderType type){
     switch(type){
         case ShaderType::SHADER_PHONE:{
             std::shared_ptr<Shader> shader(new Shader());
