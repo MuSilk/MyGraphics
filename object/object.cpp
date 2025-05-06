@@ -1,8 +1,12 @@
 #include "object.h"
 
 #include <glad/glad.h>
+#include <glm/ext.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include <glBasic/ShaderManager.h>
+#include <object/scene.h>
+#include <glBasic/Camera.h>
 
 void RenderObject::render_select(const std::map<std::string,RenderObject>& objects){
     glEnable(GL_STENCIL_TEST);
@@ -38,9 +42,9 @@ bool RenderObject::intersect(glm::vec3 RayOrigin,glm::vec3 RayDir,float tmin,flo
     bool flag=false;
     for(size_t i=0;i<clickRegion->indices.size();i+=3){
         Triangle tri;
-        tri[0]=((Mesh*)clickRegion)->getPoint(clickRegion->indices[i]).V;
-        tri[1]=((Mesh*)clickRegion)->getPoint(clickRegion->indices[i+1]).V;
-        tri[2]=((Mesh*)clickRegion)->getPoint(clickRegion->indices[i+2]).V;
+        tri[0]=((Mesh<MeshPoint>*)clickRegion)->getPoint(clickRegion->indices[i]).V;
+        tri[1]=((Mesh<MeshPoint>*)clickRegion)->getPoint(clickRegion->indices[i+1]).V;
+        tri[2]=((Mesh<MeshPoint>*)clickRegion)->getPoint(clickRegion->indices[i+2]).V;
         if(intersect_triangle(tri,lightPoint,lightDir,tminh,newt))flag=true;
     }
 
@@ -75,9 +79,6 @@ bool RenderObject::intersect_triangle(Triangle tri,glm::vec3 RayOrigin,glm::vec3
     }
     return false;
 }
-
-#include <object/scene.h>
-#include <glBasic/Camera.h>
 
 RenderObject RenderObject::evalSurface(
     glm::vec3 pos,DataObject* datasource,
@@ -116,24 +117,82 @@ PhoneObject PhoneObject::evalMeshObject(
         glm::mat4 proj=camera.GetProjectionMatrix(Width,Height);
         glm::vec3 lightdir=glm::normalize(-camera.Front);
 
-        Light* light=thisobj.curScene->getLight();
+        auto light=thisobj.curScene->getLight();
         
         ((PhoneObject*)&thisobj)->defaultrender_phone(
             model,view,proj,
             camera.Position,
-            light,thisobj.curScene->ambientColor
+            light.get(),thisobj.curScene->ambientColor
         );
     };
 
-    obj.diffuse=new SurfaceColor();
-    obj.specular=new SurfaceColor();
+    obj.diffuse=make_shared<SurfaceColor>();
+    obj.specular=make_shared<SurfaceColor>();
     obj.shininess=32.0f;
 
     return obj;
 }
 
-#include <glm/ext.hpp>
-#include <glm/gtx/string_cast.hpp>
+void Light::initShadowMap(uint32_t width,uint32_t height){
+    shadowMapWidth=width;
+    shadowMapHeight=height;
+
+    glGenTextures(1,&shadowCubeMap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP,shadowCubeMap);
+    for(int i=0;i<6;i++){
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X+i,0,GL_DEPTH_COMPONENT,width,height,0,GL_DEPTH_COMPONENT,GL_FLOAT,NULL);
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    float borderColor[] = { 1.0,1.0,1.0,1.0 };
+	glTexParameterfv(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+	glGenFramebuffers(1, &shadowMapFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, shadowCubeMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+void Light::generateShadowMap(shared_ptr<Scene> scene,float near,float far){
+    int32_t viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    glViewport(0,0,shadowMapWidth,shadowMapHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER,shadowMapFBO);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    glm::mat4 proj = glm::perspective(glm::radians(90.0f),(float)shadowMapWidth/shadowMapHeight,near,far);
+    std::vector<glm::mat4> shadowTransforms;
+	shadowTransforms.push_back(proj * glm::lookAt(position, position + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+	shadowTransforms.push_back(proj * glm::lookAt(position, position + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+	shadowTransforms.push_back(proj * glm::lookAt(position, position + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
+	shadowTransforms.push_back(proj * glm::lookAt(position, position + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)));
+	shadowTransforms.push_back(proj * glm::lookAt(position, position + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
+	shadowTransforms.push_back(proj * glm::lookAt(position, position + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
+
+    auto shadowshader=ShaderManager::getInstance().getShader(ShaderType::SHADER_PHONE);//todo 
+	
+    shadowshader->use();
+    for(int i=0;i<6;i++){
+       shadowshader->setMat4(("shadowMatrices["+to_string(i)+"]").c_str(), shadowTransforms[i]); 
+    }
+
+    shadowshader->setVec3("lightPos", position);
+	shadowshader->set1f("far_plane", far);
+
+    for(auto obj:scene->Objects){
+        if(obj.second->objectType()==ObjectType::PHONE){
+            auto real_ptr=dynamic_pointer_cast<PhoneObject>(obj.second);
+            real_ptr->render_phone(*real_ptr);
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER,0);
+    glViewport(viewport[0],viewport[1],viewport[2],viewport[3]);
+}
 
 void PhoneObject::defaultrender_phone(
 	glm::mat4 model,glm::mat4 view,glm::mat4 projection,
@@ -149,8 +208,39 @@ void PhoneObject::defaultrender_phone(
 	shader->setMat4("projection",projection);
 
 	shader->setVec3("viewPos",viewPos);
-	shader->setVec3("material.diffuse",((SurfaceColor*)diffuse)->color);
-	shader->setVec3("material.specular",((SurfaceColor*)specular)->color);
+    switch (diffuse->surfaceType()){
+    case SurfaceType::COLOR:{
+        shader->setBool("material.use_diffuse_texture",false);
+        shader->setVec4("material.diffuse",glm::vec4((static_pointer_cast<SurfaceColor>(diffuse))->color,1.0f));
+        break;
+    }
+    case SurfaceType::TEXTURE:{
+        shader->setBool("material.use_diffuse_texture",true);
+        shader->setInt("material.diffuse_texture",0);
+        auto diffuse_ptr=static_pointer_cast<SurfaceTexture>(diffuse);
+        if(diffuse_ptr->texture)diffuse_ptr->texture->bind(0);
+        break;
+    }
+    default:
+        break;
+    }
+    
+    switch (specular->surfaceType()){
+    case SurfaceType::COLOR:{
+        shader->setBool("material.use_specular_texture",false);
+        shader->setVec4("material.specular",glm::vec4(((static_pointer_cast<SurfaceColor>(specular)))->color,1.0f));
+        break;
+    }
+    case SurfaceType::TEXTURE:{
+        shader->setBool("material.use_specular_texture",true);
+        shader->setInt("material.specular_texture",1);
+        auto specular_ptr=static_pointer_cast<SurfaceTexture>(specular);
+        if(specular_ptr->texture)specular_ptr->texture->bind(1);
+    }
+    default:
+        break;
+    }
+    
 	shader->set1f("material.shininess",shininess);
 	shader->setVec3("light.position",light->position);
 	shader->setVec3("light.color",light->color);
@@ -159,5 +249,5 @@ void PhoneObject::defaultrender_phone(
 	shader->set1f("light.quadratic",light->quadratic);
 	shader->setVec3("ambientColor",ambientColor);
 
-    ((Mesh*)dataSurface)->render(GL_TRIANGLES);
+    ((Mesh<MeshPoint>*)dataSurface)->render(GL_TRIANGLES);
 }

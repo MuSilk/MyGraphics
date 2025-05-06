@@ -58,7 +58,7 @@ struct BVHNode{
 class BVHTree{
     typedef std::pair<int32_t,Bound3d> BVHLeafInfo;
 public:
-    void build(const Mesh& mesh);
+    void build(const Mesh<MeshPoint>& mesh);
     std::vector<BVHNode> nodearray;
 private:
     std::vector<BVHLeafInfo> bounds;
@@ -69,7 +69,7 @@ private:
 class BVHTreeTBO {
 	glTBO ptr, bound;
 public:
-	void init(const Mesh& mesh) {
+	void init(const Mesh<MeshPoint>& mesh) {
 		BVHTree tree;
 		tree.build(mesh);
 		std::vector<uint32_t> ptrdata;

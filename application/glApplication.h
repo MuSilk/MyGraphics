@@ -28,7 +28,7 @@ private:
     uint32_t Width=WIDTH,Height=HEIGHT;
     GLFWwindow* window;
 
-    std::map<std::string,Texture2D> Textures;
+    std::map<std::string,shared_ptr<Texture2D>> Textures;
     std::map<std::string,DataObject*> DataObjects;
 
     Scene MainScene;

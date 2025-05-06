@@ -19,6 +19,9 @@ public:
 
 class SurfaceColor:public Surface{
 public:
+    SurfaceColor(){}
+    SurfaceColor(glm::vec3 color):color(color){}
+    
     glm::vec3 color=glm::vec3(1.0f);
     virtual SurfaceType surfaceType() override{return SurfaceType::COLOR;}
 };
@@ -26,6 +29,6 @@ public:
 class SurfaceTexture:public Surface{
 public:
     string TextureName;
-    Texture2D* texture;
+    shared_ptr<Texture2D> texture;
     virtual SurfaceType surfaceType() override{return SurfaceType::TEXTURE;}
 };

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-void BVHTree::build(const Mesh& mesh ) {
+void BVHTree::build(const Mesh<MeshPoint>& mesh ) {
 	const auto& indices = mesh.indices;
 	const auto& vertices = mesh.vertices;
 

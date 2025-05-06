@@ -67,12 +67,16 @@ public:
     glm::vec3 color=glm::vec3(1.0f);
     float constant=1.0f,linear=0.045f,quadratic=0.0075f;
     virtual ObjectType objectType() const override{return ObjectType::LIGHT;}
+
+    void initShadowMap(uint32_t width,uint32_t height);
+    void generateShadowMap(shared_ptr<Scene> scene,float near,float far);
+private:
+    uint32_t shadowCubeMap,shadowMapFBO,shadowMapWidth,shadowMapHeight;
 };
 
 class PhoneObject:public RenderObject{
 public:
-    Surface* diffuse;
-    Surface* specular;
+    shared_ptr<Surface> diffuse,specular;
     float shininess;
     virtual ObjectType objectType() const override{return ObjectType::PHONE;}
 

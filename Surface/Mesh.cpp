@@ -6,69 +6,8 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <glBasic/ShaderManager.h>
-
-void Mesh::init(){
-    glObject::init(reinterpret_cast<float*>(vertices.data()),vertices.size()/MeshPoint::SIZE,MeshPoint::PARTITION,indices);
-}
-
-MeshPoint& Mesh::getPoint(size_t index) const{
-	return *(MeshPoint*)(vertices.data()+index*6);
-}
-
-void Mesh::defaultrender(
-	glm::mat4 model,glm::mat4 view,glm::mat4 projection,
-	glm::vec3 viewPos,glm::vec3 lightDir,
-	glm::vec3 materialDiffuse,glm::vec3 materialSpecular,float materialShininess,
-	glm::vec3 lightColor,glm::vec3 ambientColor){
-
-	auto shader=ShaderManager::getInstance().getShader(ShaderType::SHADER_MESH_DEFAULT);
-	shader->use();
-
-    shader->setMat4("model",model);
-    shader->setMat4("view",view);
-    shader->setMat4("projection",projection);
-
-    shader->setVec3("viewPos",viewPos);
-    shader->setVec3("material.diffuse",materialDiffuse);
-    shader->setVec3("material.specular",materialSpecular);
-    shader->set1f("material.shininess",20.0f);
-    shader->setVec3("light.direction",lightDir);
-    shader->setVec3("light.color",lightColor);
-    shader->setVec3("ambientColor",ambientColor);
-
-    render(GL_TRIANGLES);
-}
-
-void Mesh::defaultrender_T(
-	glm::mat4 model,glm::mat4 view,glm::mat4 projection,
-	glm::vec3 viewPos,glm::vec3 lightDir,
-	glm::vec3 materialDiffuse,glm::vec3 materialSpecular,float materialShininess,
-	glm::vec3 lightColor,glm::vec3 ambientColor){
-
-	defaultrender(model,view,projection,viewPos,lightDir,materialDiffuse,materialSpecular,materialShininess,lightColor,ambientColor);
-	
-	auto shader=ShaderManager::getInstance().getShader(ShaderType::SHADER_MESH_DEFAULT_NORMAL);
-	shader->use();
-    shader->setMat4("model",model);
-    shader->setMat4("view",view);
-    shader->setMat4("projection",projection);
-	glObject::render(GL_TRIANGLES);
-}
-
-void Mesh::defaultrender_region(
-	glm::mat4 mvp,
-	glm::vec3 color){
-
-	auto shader=ShaderManager::getInstance().getShader(ShaderType::SHADER_MESH_DEFAULT_REGION);
-	shader->use();
-	shader->setMat4("mvp",mvp);
-	shader->setVec3("color",color);
-	render(GL_TRIANGLES);
-}
-
-Mesh Mesh::evalQuad(){
-    Mesh R;
+Mesh<MeshPoint> Mesh<MeshPoint>::evalQuad(){
+    Mesh<MeshPoint> R;
 	R.name="Quad";
 	R.vertices=std::vector<float>{
 		-1.0f,0.0f,-1.0f,	0.0f,1.0f,0.0f,
@@ -85,8 +24,8 @@ Mesh Mesh::evalQuad(){
 	return R;
 }
 
-Mesh Mesh::evalCube(){
-	Mesh R;
+Mesh<MeshPoint> Mesh<MeshPoint>::evalCube(){
+	Mesh<MeshPoint> R;
 	R.name="Cube";
 	R.vertices=std::vector<float>{
 		-1,-1,+1,0,0,1,
@@ -128,13 +67,58 @@ Mesh Mesh::evalCube(){
 		16,17,18,16,18,19,
 		20,21,22,20,22,23
 		});
-
 	return R;
 }
 
-Mesh Mesh::evalCircle(float radius,uint32_t steps){
+Mesh<TexturedMeshPoint> Mesh<TexturedMeshPoint>::evalCube(){
+	Mesh<TexturedMeshPoint> R;
+	R.name="Cube";
+	R.vertices=std::vector<float>{
+		-1,-1,+1,	0,0,1,	0,0,
+		+1,-1,+1,	0,0,1,	1,0,
+		+1,+1,+1,	0,0,1,	1,1,
+		-1,+1,+1,	0,0,1,	0,1,
+
+		-1,-1,-1,	0,0,-1, 0,0,
+		+1,-1,-1,	0,0,-1, 1,0,
+		+1,+1,-1,	0,0,-1, 1,1,
+		-1,+1,-1,	0,0,-1, 0,1,
+
+		-1,+1,-1,	0,1,0,	0,0,
+		+1,+1,-1,	0,1,0,	1,0,
+		+1,+1,+1,	0,1,0,	1,1,
+		-1,+1,+1,	0,1,0,	0,1,
+
+		-1,-1,-1,	0,-1,0,	0,0,
+		+1,-1,-1,	0,-1,0, 1,0,
+		+1,-1,+1,	0,-1,0, 1,1,
+		-1,-1,+1,	0,-1,0, 0,1,
+
+		+1,-1,-1,	1,0,0,	0,0,
+		+1,+1,-1,	1,0,0,	1,0,
+		+1,+1,+1,	1,0,0, 	1,1,
+		+1,-1,+1,	1,0,0,	0,1,
+
+		-1,-1,-1,	-1,0,0,	0,0,
+		-1,+1,-1,	-1,0,0,	1,0,
+		-1,+1,+1,	-1,0,0, 1,1,
+		-1,-1,+1,	-1,0,0,	0,1,
+	};
+
+	R.indices.insert(R.indices.end(), {
+		0, 1, 2, 0, 2, 3,
+		4, 5, 6, 4, 6, 7,
+		8, 9, 10,8, 10,11,
+		12,13,14,12,14,15,
+		16,17,18,16,18,19,
+		20,21,22,20,22,23
+	});
+	return R;
+} 
+
+Mesh<MeshPoint> Mesh<MeshPoint>::evalCircle(float radius,uint32_t steps){
 	Curve c=Curve::evalCircle(radius,steps);
-	Mesh R;
+	Mesh<MeshPoint> R;
 	R.name="SolidCircle";
 	for(size_t i=0;i<c.size();i++){
 		R.vertices.insert(R.vertices.end(),{
@@ -150,8 +134,8 @@ Mesh Mesh::evalCircle(float radius,uint32_t steps){
 	return R;
 }
 
-Mesh Mesh::evalSphere(float radius,uint32_t steps){
-	Mesh R;
+Mesh<MeshPoint> Mesh<MeshPoint>::evalSphere(float radius,uint32_t steps){
+	Mesh<MeshPoint> R;
 	R.name="Sphere";
 
 	for (size_t i = 0; i < steps; ++i){
@@ -185,9 +169,9 @@ static bool checkFlat(const Curve& profile)
 	return true;
 }
 
-Mesh Mesh::evalSweepSurf(const Curve& profile, unsigned steps)
+Mesh<MeshPoint> Mesh<MeshPoint>::evalSweepSurf(const Curve& profile, unsigned steps)
 {
-	Mesh mesh;
+	Mesh<MeshPoint> mesh;
 	mesh.name="SweepSurf";
 
 	if (!checkFlat(profile)){
@@ -220,9 +204,9 @@ Mesh Mesh::evalSweepSurf(const Curve& profile, unsigned steps)
 	return mesh;
 }
 
-Mesh Mesh::evalCylinder(const Curve& profile, const Curve& sweep)
+Mesh<MeshPoint> Mesh<MeshPoint>::evalCylinder(const Curve& profile, const Curve& sweep)
 {
-	Mesh mesh;
+	Mesh<MeshPoint> mesh;
 	mesh.name="Cylinder";
 
 	if (!checkFlat(profile)){
@@ -261,7 +245,7 @@ Mesh Mesh::evalCylinder(const Curve& profile, const Curve& sweep)
 	return mesh;
 }
 
-Mesh Mesh::evalModel(const char* filename) {
+Mesh<MeshPoint> Mesh<MeshPoint>::evalModel(const char* filename) {
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -270,7 +254,7 @@ Mesh Mesh::evalModel(const char* filename) {
 		throw std::runtime_error(warn + err);
 	}
 
-	Mesh mesh;
+	Mesh<MeshPoint> mesh;
 	mesh.name="Model";
 	std::vector<int> cnt(attrib.vertices.size() / 3);
 
@@ -311,9 +295,7 @@ Mesh Mesh::evalModel(const char* filename) {
 	return mesh;
 }
 
-#include <shaders/rc.h>
-
-void MeshTBO::init(const Mesh& mesh){
+void MeshTBO::init(const Mesh<MeshPoint>& mesh){
 	FaceNum = mesh.indices.size() / 3;
 	vertices.init((void*)mesh.vertices.data(),mesh.vertices.size() * 6 * sizeof(float),GL_R32F);
 	indices.init((void*)mesh.indices.data(),mesh.indices.size() * sizeof(uint32_t),GL_R32UI);

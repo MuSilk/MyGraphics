@@ -2,7 +2,7 @@
 
 #include <surface/Mesh.h>
 #include <raytrace/BVHTree.h>
-Mesh model;
+Mesh<MeshPoint> model;
 MeshTBO modelTBO;
 BVHTreeTBO treeTBO;
 
@@ -17,7 +17,7 @@ void RayTrace::init(int width,int height){
     screenShader=defaultShader_screen();
     rayTraceShader=defaultShader_rayTrace();
 
-    model=Mesh::evalSphere(0.25,32);
+    model=Mesh<MeshPoint>::evalSphere(0.25,32);
 
     modelTBO.init(model);
     treeTBO.init(model);

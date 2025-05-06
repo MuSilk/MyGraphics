@@ -11,7 +11,8 @@ public:
     std::set<uint32_t> ObjectsSelect;
     uint32_t lastSelectObject=-1;
 
-    std::map<std::uint32_t,RenderObject*> Objects;
+    std::map<std::uint32_t,shared_ptr<RenderObject>> Objects;
+    std::map<std::uint32_t,shared_ptr<Light>> Lights;
     IdManager ObjectsIdManager;
     void addObject(const RenderObject& obj);
     void delObject(uint32_t id);
@@ -24,14 +25,9 @@ public:
 
     bool intersect(glm::vec3 RayOrigin,glm::vec3 RayDir,float tmin,float& t,uint32_t& hitid);
 
-    Light* getLight(){//todo:: multiple light
-        for(auto& obj:Objects){
-            if(obj.second->objectType()==ObjectType::LIGHT){
-                return (Light*)obj.second;
-            }
-        }
-        return nullptr;
-        std::cout<<"ok!\n";
+    shared_ptr<Light> getLight(){//todo:: multiple light
+        if(Lights.empty())throw std::runtime_error("only support one light,but get no light!!!");
+        return Lights.begin()->second;
     };
 
     void render();

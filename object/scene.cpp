@@ -5,18 +5,19 @@ void Scene::addObject(const RenderObject& obj){
     switch (obj.objectType())
     {
     case ObjectType::COMMON:
-        Objects[id]=new RenderObject(obj);
+        Objects[id]=make_shared<RenderObject>(obj);
         if(Objects[id]->name=="")Objects[id]->name=obj.dataSurface->name+std::to_string(id);
         break;
     case ObjectType::PHONE:{
-        Objects[id]=new PhoneObject(*((PhoneObject*)&obj));
+        Objects[id]=make_shared<PhoneObject>(*(PhoneObject*)&obj);
         if(Objects[id]->name=="")Objects[id]->name=obj.dataSurface->name+std::to_string(id);
         break;
     }
-    case ObjectType::LIGHT:
-        Objects[id]=new Light(*((Light*)&obj));
+    case ObjectType::LIGHT:{
+        Objects[id]=Lights[id]=make_shared<Light>(*(Light*)&obj);
         if(Objects[id]->name=="")Objects[id]->name="Light"+std::to_string(id);
         break;
+    }
     default:
         break;
     }
@@ -27,8 +28,8 @@ void Scene::delObject(uint32_t id){
     if(Objects.find(id)==Objects.end())return;
     if(Objects[id]->selected)ObjectsSelect.erase(id);
     if(lastSelectObject==id)lastSelectObject=-1;
+    if(Objects[id]->objectType()==ObjectType::LIGHT)Lights.erase(id);
     ObjectsIdManager.release(id);
-    delete Objects[id];
     Objects.erase(id);
 }
 
@@ -128,7 +129,7 @@ std::function<void(const RenderObject&)> Scene::defaultrender(
 
             switch (thisobj.dataSurface->type){
             case DataType::MESH:
-                ((Mesh*)thisobj.dataSurface)->defaultrender(model,view,proj,camera->Position,lightdir);
+                ((Mesh<MeshPoint>*)thisobj.dataSurface)->defaultrender(model,view,proj,camera->Position,lightdir);
                 break;
             case DataType::CURVE:
                 ((Curve*)thisobj.dataSurface)->defaultrender(model,view,proj);
@@ -142,7 +143,7 @@ std::function<void(const RenderObject&)> Scene::defaultrender(
         else {
             switch (thisobj.dataSurface->type){
             case DataType::MESH:
-                ((Mesh*)thisobj.dataSurface)->defaultrender(model,view,proj,camera->Position,lightdir);
+                ((Mesh<MeshPoint>*)thisobj.dataSurface)->defaultrender(model,view,proj,camera->Position,lightdir);
                 break;
             case DataType::CURVE:
                 ((Curve*)thisobj.dataSurface)->defaultrender(model,view,proj);
@@ -166,7 +167,7 @@ std::function<void(const RenderObject&)> Scene::defaultrender_region(
 
         switch (thisobj.dataSurface->type){
             case DataType::MESH:
-                ((Mesh*)thisobj.dataSurface)->defaultrender_region(proj*view*model,glm::vec3(1.0f,1.0f,0.0f));
+                ((Mesh<MeshPoint>*)thisobj.dataSurface)->defaultrender_region(proj*view*model,glm::vec3(1.0f,1.0f,0.0f));
                 break;
             case DataType::CURVE:
                 ((Curve*)thisobj.dataSurface)->defaultrender(model,view,proj,glm::vec3(1.0f,1.0f,0.0f));

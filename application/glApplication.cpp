@@ -60,8 +60,10 @@ void glApplication::initSettings(){
     glViewport(0,0,Width,Height);
     glEnable(GL_DEPTH_TEST);
     glPolygonMode(GL_FRONT,GL_FILL);
-
     glPointSize(5);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     MainCamera.Position=glm::vec3(-1.0f,1.0f,10.0f);
 }
@@ -82,7 +84,7 @@ RayTrace ray_trace;
 void glApplication::createDataBuffer(){
 
     // ray_trace.init(Width,Height);
-    Mesh* cube = new Mesh(Mesh::evalCube());
+    Mesh<TexturedMeshPoint>* cube=new Mesh<TexturedMeshPoint>(Mesh<TexturedMeshPoint>::evalCube());
     cube->init();
     DataObjects["cube"]=cube;
 
@@ -90,15 +92,15 @@ void glApplication::createDataBuffer(){
     circle->init();
     DataObjects["circle"]=circle;
 
-    Mesh* solidcircle=new Mesh(Mesh::evalCircle(1.0f,100));
+    Mesh<MeshPoint>* solidcircle=new Mesh<MeshPoint>(Mesh<MeshPoint>::evalCircle(1.0f,100));
     solidcircle->init();
     DataObjects["solid_circle"]=solidcircle;
 
-    Mesh* sphere=new Mesh(Mesh::evalSphere(1.0f,100));
+    Mesh<MeshPoint>* sphere=new Mesh<MeshPoint>(Mesh<MeshPoint>::evalSphere(1.0f,100));
     sphere->init();
     DataObjects["sphere"]=sphere;
 
-    Mesh* quad=new Mesh(Mesh::evalQuad());
+    Mesh<MeshPoint>* quad=new Mesh<MeshPoint>(Mesh<MeshPoint>::evalQuad());
     quad->init();
     DataObjects["quad"]=quad;
 }
@@ -177,7 +179,7 @@ void glApplication::GuiRender(){
                 if(ImGui::MenuItem("model","*.obj")){
                     char* path=nullptr;
                     if(NFD_OpenDialog("obj",NULL,&path)==NFD_OKAY){
-                        Mesh* mesh=new Mesh(Mesh::evalModel(path));
+                        Mesh<MeshPoint>* mesh=new Mesh<MeshPoint>(Mesh<MeshPoint>::evalModel(path));
                         mesh->init();
                         std::filesystem::path p(path);
                         auto filename=p.filename().string();
@@ -195,8 +197,8 @@ void glApplication::GuiRender(){
                 if(ImGui::MenuItem("Texture","*.png/*.jpg")){
                     char* path=nullptr;
                     if(NFD_OpenDialog("png;jpg",NULL,&path)==NFD_OKAY){
-                        Texture2D texture;
-                        texture.Generate(path);
+                        shared_ptr<Texture2D> texture(new Texture2D());
+                        texture->Generate(path);
                         std::filesystem::path p(path);
                         auto filename=p.filename().string();
                         std::string name=filename;
@@ -323,6 +325,7 @@ void glApplication::GuiRender(){
                 }
             }
             else if(obj->objectType()==ObjectType::PHONE){
+                auto real_ptr = dynamic_pointer_cast<PhoneObject>(obj);
                 if(ImGui::CollapsingHeader("Transform",ImGuiTreeNodeFlags_DefaultOpen)){
                     ImGui::SeparatorText("Location");
                     ImGui::InputFloat("X##Location.x", &obj->position.x);
@@ -340,45 +343,103 @@ void glApplication::GuiRender(){
                     ImGui::InputFloat("Y##Scale.y", &obj->scale.y);
                     ImGui::InputFloat("Z##Scale.z", &obj->scale.z);
                 }
-                auto phone_ptr=(PhoneObject*)obj;
                 if(ImGui::CollapsingHeader("Surface",ImGuiTreeNodeFlags_DefaultOpen)){
                     const char* type[] = { "SingleColor", "Texture"};
-                    static int diffuse_selected = ((int)phone_ptr->diffuse->surfaceType())-1; 
-                    static int specular_selected = ((int)phone_ptr->specular->surfaceType())-1;
+                    static int diffuse_selected = ((int)real_ptr->diffuse->surfaceType())-1; 
+                    static int specular_selected = ((int)real_ptr->specular->surfaceType())-1;
 
                     ImGui::SeparatorText("Diffuse");
-                    if (ImGui::Combo("Type##diffuse.type", &diffuse_selected, type, IM_ARRAYSIZE(type)));
+                    if (ImGui::Combo("Type##diffuse.type", &diffuse_selected, type, IM_ARRAYSIZE(type))){
+                        switch (diffuse_selected){
+                            case 0:{
+                                if(real_ptr->diffuse->surfaceType()==SurfaceType::TEXTURE){
+                                    real_ptr->diffuse=std::make_shared<SurfaceColor>();
+                                }
+                            }
+                            case 1:{
+                                if(real_ptr->diffuse->surfaceType()==SurfaceType::COLOR){
+                                    real_ptr->diffuse=std::make_shared<SurfaceTexture>();
+                                }
+                            }
+                        }
+                    }
+                    
                     switch (diffuse_selected){
                         case 0:{
-                            ImGui::ColorEdit3("Color##diffuse.color",(float*)&(((SurfaceColor*)(phone_ptr->diffuse))->color));
+                            auto diffuse_ptr = static_pointer_cast<SurfaceColor>(real_ptr->diffuse);
+                            ImGui::ColorEdit3("Color##diffuse.color",(float*)&(diffuse_ptr->color));
                             break;
                         }
                         case 1:{
+                            auto diffuse_ptr = static_pointer_cast<SurfaceTexture>(real_ptr->diffuse);
+
                             std::vector<const char*> texture_list={"None"};
                             for(auto& [name,texture]:Textures)texture_list.push_back(name.c_str());
                             static int selected=0;
-                            // string texture_name=((SurfaceTexture*)(phone_ptr->diffuse))->TextureName;
-                            string texture_name="";
+                            string texture_name=diffuse_ptr->TextureName;
                             for(int i=1;i<texture_list.size();i++){
                                 if(texture_list[i]==texture_name){
                                     selected=i;
                                     break;
                                 }
                             }
-                            if (ImGui::Combo("Texture##diffuse.texture", &selected, texture_list.data(), texture_list.size()));
+                            if (ImGui::Combo("Texture##diffuse.texture", &selected, texture_list.data(), texture_list.size())){
+                                diffuse_ptr->TextureName=texture_list[selected];
+                                diffuse_ptr->texture=Textures[diffuse_ptr->TextureName];
+                            }
+                            break;
+                        }
+                    }
+
+                    ImGui::SeparatorText("Specular");
+                    if (ImGui::Combo("Type##specular.type", &specular_selected, type, IM_ARRAYSIZE(type))){
+                        switch (specular_selected){
+                            case 0:{
+                                if(real_ptr->specular->surfaceType()==SurfaceType::TEXTURE){
+                                    real_ptr->specular=std::make_shared<SurfaceColor>();
+                                }
+                            }
+                            case 1:{
+                                if(real_ptr->specular->surfaceType()==SurfaceType::COLOR){
+                                    real_ptr->specular=std::make_shared<SurfaceTexture>();
+                                }
+                            }
+                        }
+                    }
+                    
+                    switch (specular_selected){
+                        case 0:{
+                            auto specular_ptr = static_pointer_cast<SurfaceColor>(real_ptr->specular);
+                            ImGui::ColorEdit3("Color##specular.color",(float*)&(specular_ptr->color));
+                            break;
+                        }
+                        case 1:{
+                            auto specular_ptr = static_pointer_cast<SurfaceTexture>(real_ptr->specular);
+
+                            std::vector<const char*> texture_list={"None"};
+                            for(auto& [name,texture]:Textures)texture_list.push_back(name.c_str());
+                            static int selected=0;
+                            string texture_name=specular_ptr->TextureName;
+                            for(int i=1;i<texture_list.size();i++){
+                                if(texture_list[i]==texture_name){
+                                    selected=i;
+                                    break;
+                                }
+                            }
+                            if (ImGui::Combo("Texture##specular.texture", &selected, texture_list.data(), texture_list.size())){
+                                specular_ptr->TextureName=texture_list[selected];
+                                specular_ptr->texture=Textures[specular_ptr->TextureName];
+                            }
                             break;
                         }
                     }
                     
-                    ImGui::SeparatorText("Specular");
-                    if (ImGui::Combo("Type##specular.type", &specular_selected, type, IM_ARRAYSIZE(type)));
-                    ImGui::ColorEdit3("Color##specular.color",(float*)&(((SurfaceColor*)(phone_ptr->specular))->color));
-                    
                     ImGui::SeparatorText("Shininess");
-                    ImGui::InputFloat("shininess",&(phone_ptr->shininess));
+                    ImGui::InputFloat("shininess",&(real_ptr->shininess));
                 }
             }
             else if(obj->objectType()==ObjectType::LIGHT){
+                auto real_ptr = dynamic_pointer_cast<Light>(obj);
                 if(ImGui::CollapsingHeader("Transform",ImGuiTreeNodeFlags_DefaultOpen)){
                     ImGui::SeparatorText("Location");
                     ImGui::InputFloat("X##Location.x", &obj->position.x);
@@ -387,10 +448,10 @@ void glApplication::GuiRender(){
                 }
 
                 if(ImGui::CollapsingHeader("Surface",ImGuiTreeNodeFlags_DefaultOpen)){
-                    if(ImGui::ColorEdit3("Color",(float*)&(((Light*)obj)->color)));
-                    if(ImGui::InputFloat("Constant",&(((Light*)obj)->constant)));
-                    if(ImGui::InputFloat("Linear",&(((Light*)obj)->linear)));
-                    if(ImGui::InputFloat("Quadratic",&(((Light*)obj)->quadratic)));
+                    if(ImGui::ColorEdit3("Color",(float*)&(real_ptr->color)));
+                    if(ImGui::InputFloat("Constant",&(real_ptr->constant)));
+                    if(ImGui::InputFloat("Linear",&(real_ptr->linear)));
+                    if(ImGui::InputFloat("Quadratic",&(real_ptr->quadratic)));
                 }
             }
             
