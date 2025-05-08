@@ -3,11 +3,16 @@
 #include <glad/glad.h>
 #include <glm/ext.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/transform.hpp>
 
 #include <glBasic/ShaderManager.h>
 #include <object/scene.h>
 #include <glBasic/Camera.h>
 
+std::string to_string(ObjectType type){
+    static const char* type_string[]={"COMMON","PHONE","LIGHT","GROUP"};
+    return type_string[(int)type];
+}
 bool RenderObject::intersect(glm::vec3 RayOrigin,glm::vec3 RayDir,float tmin,float& t){
 
     if(clickRegion==nullptr)return false;
@@ -62,24 +67,6 @@ bool RenderObject::intersect_triangle(Triangle tri,glm::vec3 RayOrigin,glm::vec3
         return true;
     }
     return false;
-}
-
-PhoneObject PhoneObject::evalMeshObject(
-    glm::vec3 pos,DataObject* datasource,
-    Camera& camera,uint32_t& Width,uint32_t& Height
-){
-    PhoneObject obj;
-    obj.position=pos;
-    obj.scale=glm::vec3(1.0f,1.0f,1.0f);
-    obj.rotation=glm::quat(glm::vec3(0.0f,0.0f,0.0f));
-    obj.dataSurface=datasource;
-    obj.clickRegion=datasource;
-
-    obj.diffuse=make_shared<SurfaceColor>();
-    obj.specular=make_shared<SurfaceColor>();
-    obj.shininess=32.0f;
-
-    return obj;
 }
 
 void Light::initShadowMap(uint32_t width,uint32_t height){
@@ -141,6 +128,46 @@ void Light::generateShadowMap(shared_ptr<Scene> scene,float near,float far){
 
     glBindFramebuffer(GL_FRAMEBUFFER,0);
     glViewport(viewport[0],viewport[1],viewport[2],viewport[3]);
+}
+
+shared_ptr<Light> Light::evalLight(
+    glm::vec3 pos,DataObject* dataSurface,DataObject* clickRegion,
+    Camera& camera,uint32_t& Width,uint32_t& Height
+){
+    shared_ptr<Light> obj=make_shared<Light>();
+    obj->id=-1;
+    obj->position=pos;
+    obj->scale=glm::vec3(0.1f,0.1f,0.1f);
+    obj->rotation=glm::quat(glm::vec3(0.0f,0.0f,0.0f));
+    obj->dataSurface=dataSurface;
+    obj->clickRegion=clickRegion;
+    obj->update=[&](RenderObject& thisobj){
+        auto z=glm::normalize(camera.Position-thisobj.position);
+        auto x=glm::normalize(glm::cross(glm::vec3(0.0f,1.0f,0.0f),z));
+        auto y=glm::normalize(glm::cross(z,x));
+        glm::mat3 rotate={x,y,z};
+        thisobj.rotation=glm::quat(rotate);
+    };
+    
+    return obj;
+}
+shared_ptr<PhoneObject> PhoneObject::evalMeshObject(
+    glm::vec3 pos,DataObject* datasource,
+    Camera& camera,uint32_t& Width,uint32_t& Height
+){
+    shared_ptr<PhoneObject> obj=make_shared<PhoneObject>();
+    obj->id=-1;
+    obj->position=pos;
+    obj->scale=glm::vec3(1.0f,1.0f,1.0f);
+    obj->rotation=glm::quat(glm::vec3(0.0f,0.0f,0.0f));
+    obj->dataSurface=datasource;
+    obj->clickRegion=datasource;
+
+    obj->diffuse=make_shared<SurfaceColor>();
+    obj->specular=make_shared<SurfaceColor>();
+    obj->shininess=32.0f;
+    
+    return obj;
 }
 
 void PhoneObject::defaultrender_phone(
@@ -207,11 +234,11 @@ void ObjectGroup::addObject(const RenderObject& obj){
     {
     case ObjectType::COMMON:
         Objects[id]=make_shared<RenderObject>(obj);
-        if(Objects[id]->name=="")Objects[id]->name=obj.dataSurface->name+std::to_string(id);
+        if(Objects[id]->name=="")Objects[id]->name=obj.dataSurface->geometry+std::to_string(id);
         break;
     case ObjectType::PHONE:{
         Objects[id]=make_shared<PhoneObject>(*(PhoneObject*)&obj);
-        if(Objects[id]->name=="")Objects[id]->name=obj.dataSurface->name+std::to_string(id);
+        if(Objects[id]->name=="")Objects[id]->name=obj.dataSurface->geometry+std::to_string(id);
         break;
     }
     case ObjectType::LIGHT:{

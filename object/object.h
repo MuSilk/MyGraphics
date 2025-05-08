@@ -22,6 +22,8 @@ enum class ObjectType{
     ObjectGroup
 };
 
+std::string to_string(ObjectType type);
+
 class Scene;
 
 class RenderObject {
@@ -58,6 +60,10 @@ class Light:public RenderObject{
 public:
     virtual ObjectType objectType() const override{return ObjectType::LIGHT;}
 
+    static shared_ptr<Light> evalLight(
+        glm::vec3 pos,DataObject* dataSurface,DataObject* clickRegion,
+        Camera& camera,uint32_t& Width,uint32_t& Height);
+
     glm::vec3 color=glm::vec3(1.0f);
     float constant=1.0f,linear=0.045f,quadratic=0.0075f;    
 
@@ -73,7 +79,7 @@ public:
     float shininess;
     virtual ObjectType objectType() const override{return ObjectType::PHONE;}
 
-    static PhoneObject evalMeshObject(
+    static shared_ptr<PhoneObject> evalMeshObject(
         glm::vec3 pos,DataObject* datasource,
         Camera& camera,uint32_t& Width,uint32_t& Height);
 

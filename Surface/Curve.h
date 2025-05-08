@@ -7,19 +7,17 @@
 
 #include <glBasic/glObject.h>
 #include <object/DataObject.h>
-#include <common/AttrManager.h>
 
 struct CurvePoint{
     glm:: vec3 V,T,N,B;
     static const size_t SIZE=12; 
     constexpr static std::initializer_list<uint32_t> PARTITION={3,3,3,3};
+    constexpr static char* vertexType="CurvePoint";
 };
 
 class Curve:public DataObject,public glObject{
 public:
-
-    AttrManager attrs;
-    Curve(){useIndex=false;name="Curve";};
+    Curve(){useIndex=false;geometry="Curve";vertexType=CurvePoint::vertexType;};
     Curve(size_t n):Curve(){vertices.resize(CurvePoint::SIZE*n);}
 
     CurvePoint& getPoint(size_t index) const;

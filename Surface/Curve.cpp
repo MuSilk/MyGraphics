@@ -170,8 +170,11 @@ std::shared_ptr<Curve> Curve::evalBspline(const std::vector< glm::vec3 >& P, uin
 
 std::shared_ptr<Curve> Curve::evalCircle(float radius, uint32_t steps) {
 	std::shared_ptr<Curve> result=std::make_shared<Curve>(steps+1);
+	Curve test;
 	Curve& R=*result;
-	R.name="Circle";
+	R.geometry="Circle";
+	R.attrs.setAttr("Radius",radius);
+	R.attrs.setAttr("Steps",steps);
 
 	for (unsigned i = 0; i <= steps; ++i)
 	{

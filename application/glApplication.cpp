@@ -89,23 +89,28 @@ void glApplication::createDataBuffer(){
     // ray_trace.init(Width,Height);
     auto cube=Mesh<TexturedMeshPoint>::evalCube();
     cube->init();
-    DataObjects["cube"]=cube;
+    cube->name="Cube";
+    DataObjects["Cube"]=cube;
 
     auto circle = Curve::evalCircle(1.0f,100); 
     circle->init();
-    DataObjects["circle"]=circle;
+    circle->name="Circle";
+    DataObjects["Circle"]=circle;
 
     auto solidcircle=Mesh<MeshPoint>::evalCircle(1.0f,100);
     solidcircle->init();
-    DataObjects["solid_circle"]=solidcircle;
+    solidcircle->name="SolidCircle";
+    DataObjects["SolidCircle"]=solidcircle;
 
     auto sphere=Mesh<MeshPoint>::evalSphere(1.0f,100);
     sphere->init();
-    DataObjects["sphere"]=sphere;
+    sphere->name="Sphere";
+    DataObjects["Sphere"]=sphere;
 
     auto quad=Mesh<MeshPoint>::evalQuad();
     quad->init();
-    DataObjects["quad"]=quad;
+    quad->name="Quad";
+    DataObjects["Quad"]=quad;
 }
 
 void glApplication::mainLoop(){
@@ -175,7 +180,13 @@ void glApplication::GuiRender(){
 
     if(ImGui::BeginMenuBar()){
         if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("Open", "Ctrl+O")) {  }
+            if (ImGui::MenuItem("Open", "Ctrl+O")) { 
+                char* path=nullptr;
+                if(NFD_OpenDialog("mep",NULL,&path)==NFD_OKAY){
+                    loadProject(path);
+                    free(path);
+                }
+            }
             if (ImGui::MenuItem("Save", "Ctrl+S")) {  
                 char* path=nullptr;
                 if(NFD_SaveDialog("mep",NULL,&path)==NFD_OKAY){
@@ -203,6 +214,7 @@ void glApplication::GuiRender(){
                                 if(DataObjects.find(name)==DataObjects.end())break;
                             }
                         }
+                        mesh->name=name;
                         DataObjects[name]=mesh;
                         free(path);
                     }
@@ -210,7 +222,7 @@ void glApplication::GuiRender(){
                 if(ImGui::MenuItem("Texture","*.png/*.jpg")){
                     char* path=nullptr;
                     if(NFD_OpenDialog("png;jpg",NULL,&path)==NFD_OKAY){
-                        shared_ptr<Texture2D> texture(new Texture2D());
+                        shared_ptr<Texture2D> texture=make_shared<Texture2D>();
                         texture->Generate(path);
                         std::filesystem::path p(path);
                         auto filename=p.filename().string();
@@ -389,7 +401,7 @@ void glApplication::GuiRender(){
                             std::vector<const char*> texture_list={"None"};
                             for(auto& [name,texture]:Textures)texture_list.push_back(name.c_str());
                             static int selected=0;
-                            string texture_name=diffuse_ptr->TextureName;
+                            string texture_name=diffuse_ptr->textureName;
                             for(int i=1;i<texture_list.size();i++){
                                 if(texture_list[i]==texture_name){
                                     selected=i;
@@ -397,8 +409,8 @@ void glApplication::GuiRender(){
                                 }
                             }
                             if (ImGui::Combo("Texture##diffuse.texture", &selected, texture_list.data(), texture_list.size())){
-                                diffuse_ptr->TextureName=texture_list[selected];
-                                diffuse_ptr->texture=Textures[diffuse_ptr->TextureName].texture;
+                                diffuse_ptr->textureName=texture_list[selected];
+                                diffuse_ptr->texture=Textures[diffuse_ptr->textureName].texture;
                             }
                             break;
                         }
@@ -432,7 +444,7 @@ void glApplication::GuiRender(){
                             std::vector<const char*> texture_list={"None"};
                             for(auto& [name,texture]:Textures)texture_list.push_back(name.c_str());
                             static int selected=0;
-                            string texture_name=specular_ptr->TextureName;
+                            string texture_name=specular_ptr->textureName;
                             for(int i=1;i<texture_list.size();i++){
                                 if(texture_list[i]==texture_name){
                                     selected=i;
@@ -440,8 +452,8 @@ void glApplication::GuiRender(){
                                 }
                             }
                             if (ImGui::Combo("Texture##specular.texture", &selected, texture_list.data(), texture_list.size())){
-                                specular_ptr->TextureName=texture_list[selected];
-                                specular_ptr->texture=Textures[specular_ptr->TextureName].texture;
+                                specular_ptr->textureName=texture_list[selected];
+                                specular_ptr->texture=Textures[specular_ptr->textureName].texture;
                             }
                             break;
                         }
@@ -514,7 +526,7 @@ void glApplication::GuiRender(){
 
         if (ImGui::BeginDragDropTarget()){
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_NAME")){
-                PhoneObject obj=PhoneObject::evalMeshObject(
+                auto obj=PhoneObject::evalMeshObject(
                     MainCamera.GetPointPosition(mousePos,20.0f,Width,Height),
                     DataObjects[(char*)payload->Data].get(),
                     MainCamera,Width,Height
@@ -526,31 +538,21 @@ void glApplication::GuiRender(){
 
         if(ImGui::BeginPopupContextWindow()){
             if(ImGui::MenuItem("Create Cube",NULL)){
-                PhoneObject obj=PhoneObject::evalMeshObject(
+                auto obj=PhoneObject::evalMeshObject(
                     MainCamera.GetPointPosition(mouseRightClickMenuPos,20.0f,Width,Height),
-                    DataObjects["cube"].get(),
+                    DataObjects["Cube"].get(),
                     MainCamera,Width,Height
                 );
                 MainScene.addObject(obj);
             }
             if(ImGui::MenuItem("Create Light",NULL)){
-                Light obj; 
-                obj.position=MainCamera.GetPointPosition(mouseRightClickMenuPos,20.0f,Width,Height);
-                obj.scale=glm::vec3(0.1f,0.1f,0.1f);
-                obj.rotation=glm::quat(glm::vec3(0.0f,0.0f,0.0f));
-                obj.dataSurface=DataObjects["circle"].get();
-                obj.clickRegion=DataObjects["solid_circle"].get();
-                obj.update=[&](RenderObject& thisobj){
-                    auto z=glm::normalize(MainCamera.Position-thisobj.position);
-                    auto x=glm::normalize(glm::cross(glm::vec3(0.0f,1.0f,0.0f),z));
-                    auto y=glm::normalize(glm::cross(z,x));
-                    glm::mat3 rotate={x,y,z};
-                    thisobj.rotation=glm::quat(rotate);
-                };
-                
-                obj.dataSurface->name="Light";
+                auto obj=Light::evalLight(
+                    MainCamera.GetPointPosition(mouseRightClickMenuPos,20.0f,Width,Height),
+                    DataObjects["Circle"].get(),
+                    DataObjects["SolidCircle"].get(),
+                    MainCamera,Width,Height
+                );
                 MainScene.addObject(obj);
-                obj.dataSurface->name="Circle";
             }
             ImGui::EndPopup();
         }
@@ -697,8 +699,7 @@ void glApplication::mouseButtonCallback(GLFWwindow* window, int button, int acti
     }
 }
 
-#include <tinyxml2.h>
-using namespace tinyxml2;
+#include <application/ProjectSerializer.h>
 void glApplication::saveProject(const char* path){
     XMLDocument doc;
     auto declaration=doc.NewDeclaration();
@@ -711,9 +712,9 @@ void glApplication::saveProject(const char* path){
     project_elem->InsertEndChild(textures_elem);
     for(auto& [name,texture]:Textures){
         auto texture_elem=doc.NewElement("Texture");
+        textures_elem->InsertEndChild(texture_elem);
         texture_elem->SetAttribute("Name",name.c_str());
         texture_elem->SetAttribute("Source",texture.source.c_str());
-        textures_elem->InsertEndChild(texture_elem);
     }
 
     auto models_elem=doc.NewElement("Surfaces");
@@ -723,23 +724,174 @@ void glApplication::saveProject(const char* path){
         models_elem->InsertEndChild(model_elem);
 
         model_elem->SetAttribute("Name",name.c_str());
-        switch (obj->dataType()){
-            case DataType::CURVE:{
-                model_elem->SetAttribute("Type","Curve");
-                
-            }
-            case DataType::MESH:{
-                model_elem->SetAttribute("Type","Mesh");
-            }
-            default:{
-                throw std::runtime_error("undefined data type");
-            }
-        }
-        
-        // model_elem->SetAttribute("Type",(int)obj->objectType());
-        // model_elem->SetAttribute("Source",obj->source.c_str());
-        
+        model_elem->SetAttribute("SurfaceType",to_string(obj->dataType()).c_str());
+        model_elem->SetAttribute("VertexType",obj->vertexType.c_str());
+        model_elem->SetAttribute("Geometry",obj->geometry.c_str());
+
+        auto attrs=obj->attrs.getAttrs(&doc);
+        model_elem->InsertEndChild(attrs);        
+    }
+
+    auto scene_elem=doc.NewElement("Scene");
+    project_elem->InsertEndChild(scene_elem);
+
+    scene_elem->InsertEndChild(ProjectSerializer::serializeColor(doc,"AmbientColor",MainScene.ambientColor));
+
+    auto objects_elem=doc.NewElement("Objects");
+    scene_elem->InsertEndChild(objects_elem);
+    for(auto& [id,obj]:MainScene.Objects){
+        auto object_elem=ProjectSerializer::serialize(doc,obj);
+        objects_elem->InsertEndChild(object_elem);
     }
 
     doc.SaveFile(path);
+}
+
+void glApplication::loadProject(const char* path){
+    XMLDocument doc;
+    auto error=doc.LoadFile(path);
+    if(error!=XML_SUCCESS)return;
+
+    MainScene.clear();
+    Textures.clear();
+    DataObjects.clear();
+
+    MainCamera=Camera();
+    MainCamera.Position=glm::vec3(-1.0f,1.0f,10.0f);
+
+    auto root=doc.RootElement();
+
+    auto textures_elem=root->FirstChildElement("Textures");
+    for(auto texture_elem=textures_elem->FirstChildElement();texture_elem!=nullptr;texture_elem=texture_elem->NextSiblingElement()){
+        std::string name=texture_elem->Attribute("Name");
+        std::string source=texture_elem->Attribute("Source");
+        auto texture=Textures[name]={std::make_shared<Texture2D>(),source};
+        texture.texture->Generate(source.c_str());
+    }
+
+    auto surfaces_elem=textures_elem->NextSiblingElement("Surfaces");
+    for(auto surface_elem=surfaces_elem->FirstChildElement();surface_elem;surface_elem=surface_elem->NextSiblingElement()){
+        std::string name=surface_elem->Attribute("Name");
+        std::string type=surface_elem->Attribute("SurfaceType");
+        std::string vertexType=surface_elem->Attribute("VertexType");
+        std::string geometry=surface_elem->Attribute("Geometry");
+        auto attrs=surface_elem->FirstChildElement("Attrs");
+
+        if(type=="Curve"){
+            if(vertexType=="CurvePoint"){
+                if(geometry=="Circle"){
+                    auto radius=attrs->FirstChildElement("Radius")->FloatAttribute("value");
+                    auto steps=attrs->FirstChildElement("Steps")->IntAttribute("value");
+                    auto circle=Curve::evalCircle(radius,steps);
+                    circle->init();
+                    circle->name="Circle";
+                    DataObjects["Circle"]=circle;
+                }
+            }
+        }
+        else if(type=="Mesh"){
+            if(vertexType=="MeshPoint"){
+                if(geometry=="Cube"){
+                    auto cube=Mesh<MeshPoint>::evalCube();
+                    cube->init();
+                    cube->name=name;
+                    DataObjects[name]=cube;
+                }
+                else if(geometry=="Circle"){
+                    auto radius=attrs->FirstChildElement("Radius")->FloatAttribute("value");
+                    auto steps=attrs->FirstChildElement("Steps")->IntAttribute("value");
+                    auto circle=Mesh<MeshPoint>::evalCircle(radius,steps);
+                    circle->init();
+                    circle->name=name;
+                    DataObjects[name]=circle;
+                }
+                else if(geometry=="Sphere"){
+                    auto radius=attrs->FirstChildElement("Radius")->FloatAttribute("value");
+                    auto steps=attrs->FirstChildElement("Steps")->IntAttribute("value");
+                    auto sphere=Mesh<MeshPoint>::evalSphere(radius,steps);
+                    sphere->init();
+                    sphere->name=name;
+                    DataObjects[name]=sphere;
+                }
+                else if(geometry=="Quad"){
+                    auto quad=Mesh<MeshPoint>::evalQuad();
+                    quad->init();
+                    quad->name=name;
+                    DataObjects[name]=quad;
+                }
+                else if(geometry=="Model"){
+                    auto source=attrs->FirstChildElement("Source")->Attribute("value");
+                    auto mesh=Mesh<MeshPoint>::evalModel(source);
+                    mesh->init();
+                    mesh->name=name;
+                    DataObjects[name]=mesh;
+                }
+            }
+            else if(vertexType=="TexturedMeshPoint"){
+                if(geometry=="Cube"){
+                    auto cube=Mesh<TexturedMeshPoint>::evalCube();
+                    cube->init();
+                    cube->name=name;
+                    DataObjects[name]=cube;
+                }
+            }
+        }
+    }
+
+    auto scene_elem=root->FirstChildElement("Scene");
+    auto ambientColor_elem=scene_elem->FirstChildElement("AmbientColor");
+    MainScene.ambientColor=ProjectSerializer::deserializeColor(ambientColor_elem);
+    auto objects_elem=scene_elem->FirstChildElement("Objects");
+    for(auto object_elem=objects_elem->FirstChildElement("Object");object_elem;object_elem=object_elem->NextSiblingElement("Object")){
+        
+        auto transform_elem=object_elem->FirstChildElement("Transform");
+        auto position=ProjectSerializer::deserializeVec3(transform_elem->FirstChildElement("Position"));
+        auto rotation=ProjectSerializer::deserializeQuat(transform_elem->FirstChildElement("Rotation"));
+        auto scale=ProjectSerializer::deserializeVec3(transform_elem->FirstChildElement("Scale"));
+        auto dataSurface=DataObjects[object_elem->FirstChildElement("DataSurface")->Attribute("Name")];
+        auto clickRegion=DataObjects[object_elem->FirstChildElement("ClickRegion")->Attribute("Name")];
+        
+        if(object_elem->Attribute("ObjectType")==std::string("LIGHT")){
+            auto obj=Light::evalLight(
+                position,
+                dataSurface.get(),clickRegion.get(),
+                MainCamera,Width,Height
+            );
+            obj->rotation=rotation;
+            obj->scale=scale;
+            
+            auto light_elem=object_elem->FirstChildElement("Light");
+            obj->constant=light_elem->FirstChildElement("Constant")->FloatAttribute("Value");
+            obj->linear=light_elem->FirstChildElement("Linear")->FloatAttribute("Value");
+            obj->quadratic=light_elem->FirstChildElement("Quadratic")->FloatAttribute("Value");
+            obj->id=object_elem->IntAttribute("Id");
+            obj->name=object_elem->Attribute("Name");
+            MainScene.addObject(obj);
+        }
+        else if(object_elem->Attribute("ObjectType")==std::string("PHONE")){
+            auto obj=PhoneObject::evalMeshObject(
+                position,
+                dataSurface.get(),MainCamera,Width,Height
+            );
+            obj->rotation=rotation;
+            obj->scale=scale;
+
+            auto phone_elem=object_elem->FirstChildElement("Phone");
+
+            obj->diffuse=ProjectSerializer::deserialize<Surface>(phone_elem->FirstChildElement("Diffuse"));
+            if(obj->diffuse->surfaceType()==SurfaceType::TEXTURE){
+                auto diffuse_ptr=static_pointer_cast<SurfaceTexture>(obj->diffuse);
+                diffuse_ptr->texture=Textures[diffuse_ptr->textureName].texture;
+            }
+            obj->specular=ProjectSerializer::deserialize<Surface>(phone_elem->FirstChildElement("Specular"));
+            if(obj->specular->surfaceType()==SurfaceType::TEXTURE){
+                auto specular_ptr=static_pointer_cast<SurfaceTexture>(obj->specular);
+                specular_ptr->texture=Textures[specular_ptr->textureName].texture;
+            }//todo textureManager
+
+            obj->id=object_elem->IntAttribute("Id");
+            obj->name=object_elem->Attribute("Name");
+            MainScene.addObject(obj);
+        }
+    }
 }

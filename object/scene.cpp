@@ -1,27 +1,23 @@
 #include "scene.h"
 
-void Scene::addObject(const RenderObject& obj){
-    auto id=ObjectsIdManager.get();
-    switch (obj.objectType())
-    {
-    case ObjectType::COMMON:
-        Objects[id]=make_shared<RenderObject>(obj);
-        if(Objects[id]->name=="")Objects[id]->name=obj.dataSurface->name+std::to_string(id);
-        break;
-    case ObjectType::PHONE:{
-        Objects[id]=make_shared<PhoneObject>(*(PhoneObject*)&obj);
-        if(Objects[id]->name=="")Objects[id]->name=obj.dataSurface->name+std::to_string(id);
-        break;
+void Scene::addObject(std::shared_ptr<RenderObject> obj){
+    auto id=obj->id;
+    if(id==-1){
+        id=ObjectsIdManager.get();
+        obj->id=id;
     }
-    case ObjectType::LIGHT:{
-        Objects[id]=Lights[id]=make_shared<Light>(*(Light*)&obj);
-        if(Objects[id]->name=="")Objects[id]->name="Light"+std::to_string(id);
-        break;
+    else if(id>=ObjectsIdManager.tail){
+        ObjectsIdManager.setfirstUnusedId(id+1);
     }
-    default:
-        break;
+    
+    if(obj->objectType()==ObjectType::LIGHT){
+        Lights[id]=std::dynamic_pointer_cast<Light>(obj);
+        if(obj->name=="")obj->name="Light"+std::to_string(id);
     }
-    Objects[id]->id=id;
+    else if(obj->name==""){
+        obj->name=obj->dataSurface->name+std::to_string(id);
+    }
+    Objects[id]=obj;
 }
 void Scene::delObject(uint32_t id){
     if(Objects.find(id)==Objects.end())return;
@@ -30,6 +26,14 @@ void Scene::delObject(uint32_t id){
     if(Objects[id]->objectType()==ObjectType::LIGHT)Lights.erase(id);
     ObjectsIdManager.release(id);
     Objects.erase(id);
+}
+
+void Scene::clear(){ 
+    while(!Objects.empty()){
+        auto id=Objects.begin()->first;
+        delObject(id);
+    }
+    ObjectsIdManager.setfirstUnusedId(0);
 }
 
 void Scene::selectObject(uint32_t id){

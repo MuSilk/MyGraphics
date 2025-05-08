@@ -2,8 +2,8 @@
 
 std::string to_string(SurfaceType type){
     switch(type){
-        case SurfaceType::NONE:return "NONE";break;
-        case SurfaceType::COLOR:return "COLOR";break;
-        case SurfaceType::TEXTURE:return "TEXTURE";break;
+        case SurfaceType::NONE:return "None";break;
+        case SurfaceType::COLOR:return "Color";break;
+        case SurfaceType::TEXTURE:return "Texture";break;
     }
 }

@@ -13,6 +13,7 @@ struct MeshPoint{
     glm::vec3 V,N;
     static const size_t SIZE=6; 
     constexpr static std::initializer_list<uint32_t> PARTITION={3,3};
+    constexpr static char* vertexType="MeshPoint";
 };
 
 struct TexturedMeshPoint{
@@ -20,12 +21,13 @@ struct TexturedMeshPoint{
     glm::vec2 T;
     static const size_t SIZE=8;
     constexpr static std::initializer_list<uint32_t> PARTITION={3,3,2};
+    constexpr static char* vertexType="TexturedMeshPoint";
 };
 
 template<class T>
 class Mesh:public glObject,public DataObject{
 public:
-    Mesh(){useIndex=true;name="Mesh";}
+    Mesh(){useIndex=true;geometry="Mesh";vertexType=T::vertexType;};
     virtual DataType dataType() const override {return DataType::MESH;}
     void init(){
         glObject::init(reinterpret_cast<float*>(vertices.data()),vertices.size()/T::SIZE,T::PARTITION,indices);

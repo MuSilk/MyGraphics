@@ -23,8 +23,9 @@ public:
     std::map<std::uint32_t,shared_ptr<RenderObject>> Objects;
     std::map<std::uint32_t,shared_ptr<Light>> Lights;
     IdManager ObjectsIdManager;
-    void addObject(const RenderObject& obj);
+    void addObject(std::shared_ptr<RenderObject> obj);
     void delObject(uint32_t id);
+    void clear();
 
     void selectObject(uint32_t id);
     void deselectObjcet(uint32_t id);
