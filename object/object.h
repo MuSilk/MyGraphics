@@ -13,11 +13,13 @@
 #include <surface/Mesh.h>
 #include <glBasic/Camera.h>
 #include <object/surface.h>
+#include <common/IdManager.h>
 
 enum class ObjectType{
     COMMON,
     PHONE,
     LIGHT,
+    ObjectGroup
 };
 
 class Scene;
@@ -31,11 +33,7 @@ public:
     glm::vec3 scale;
     DataObject* dataSurface;
     DataObject* clickRegion;
-    Scene* curScene;
     bool selected=false;
-    std::function<void(const RenderObject&)> render;
-    std::function<void(const RenderObject&)> render_margin;
-    std::function<void(const RenderObject&)> render_phone=[](const RenderObject& obj){};;
     std::function<void(RenderObject&)> update=[](RenderObject& obj){};
     glm::mat4 GetScaleMatrix() const{
         return glm::scale(glm::mat4(1.0f),scale);
@@ -50,23 +48,18 @@ public:
         return GetTranslateMatrix()*GetRotateMatrix()*GetScaleMatrix();
     }
     bool intersect(glm::vec3 RayOrigin,glm::vec3 RayDir,float tmin,float& t);
-    static void render_select(const std::map<std::string,RenderObject>& objects);
     virtual ObjectType objectType() const{return ObjectType::COMMON;}
 private:
     typedef std::array<glm::vec3,3> Triangle;
     static bool intersect_triangle(Triangle tri,glm::vec3 RayOrigin,glm::vec3 RayDir,float tmin,float& t);
-
-public:
-    static RenderObject evalSurface(
-        glm::vec3 pos,DataObject* datasource,
-        Camera& camera,uint32_t& Width,uint32_t& Height);
 };
 
 class Light:public RenderObject{
 public:
-    glm::vec3 color=glm::vec3(1.0f);
-    float constant=1.0f,linear=0.045f,quadratic=0.0075f;
     virtual ObjectType objectType() const override{return ObjectType::LIGHT;}
+
+    glm::vec3 color=glm::vec3(1.0f);
+    float constant=1.0f,linear=0.045f,quadratic=0.0075f;    
 
     void initShadowMap(uint32_t width,uint32_t height);
     void generateShadowMap(shared_ptr<Scene> scene,float near,float far);
@@ -90,4 +83,15 @@ public:
         Light* light,
         glm::vec3 ambientColor=glm::vec3(0.5f)
     );
+};
+
+class ObjectGroup:public RenderObject{
+public:
+    virtual ObjectType objectType() const override{return ObjectType::ObjectGroup;}
+    std::map<std::uint32_t,shared_ptr<RenderObject>> Objects;
+    std::map<std::uint32_t,shared_ptr<Light>> Lights;
+    void addObject(const RenderObject& obj);
+    void delObject(uint32_t id);
+private:
+    IdManager ObjectsIdManager;
 };

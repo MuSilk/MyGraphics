@@ -13,6 +13,8 @@ enum class ShaderType{
 
     SHADER_CURVE_DEFAULT,
     SHADER_CURVE_DEFAULT_VECTOR,
+
+    SHADER_SHADOW_DEPTH_MAP,
 };
 
 

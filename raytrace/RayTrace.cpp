@@ -17,10 +17,10 @@ void RayTrace::init(int width,int height){
     screenShader=defaultShader_screen();
     rayTraceShader=defaultShader_rayTrace();
 
-    model=Mesh<MeshPoint>::evalSphere(0.25,32);
+    auto model=Mesh<MeshPoint>::evalSphere(0.25,32);
 
-    modelTBO.init(model);
-    treeTBO.init(model);
+    modelTBO.init(*model);
+    treeTBO.init(*model);
 }
 
 static float GetRandamSeed() {

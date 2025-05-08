@@ -8,6 +8,15 @@
 
 class Scene{
 public:
+    enum class RenderOption{
+        RENDEROPTION_COMMON,
+        RENDEROPTION_PHONE,
+        RENDEROPTION_RAYTRACE
+    };
+
+    Camera* camera;
+    uint32_t* Width,*Height;
+
     std::set<uint32_t> ObjectsSelect;
     uint32_t lastSelectObject=-1;
 
@@ -29,13 +38,11 @@ public:
         if(Lights.empty())throw std::runtime_error("only support one light,but get no light!!!");
         return Lights.begin()->second;
     };
-
-    void render();
+    
+    void render(RenderOption option);
     void update();
-    void render_select();
 
     glm::vec3 ambientColor=glm::vec3(0.1f);
-    void render_phone();
 
     static std::function<void(const RenderObject&)> defaultrender(
         Camera* camera,uint32_t* width,uint32_t* height);

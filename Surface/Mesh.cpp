@@ -6,8 +6,9 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-Mesh<MeshPoint> Mesh<MeshPoint>::evalQuad(){
-    Mesh<MeshPoint> R;
+std::shared_ptr<Mesh<MeshPoint>> Mesh<MeshPoint>::evalQuad(){
+	std::shared_ptr<Mesh<MeshPoint>> result=std::make_shared<Mesh<MeshPoint>>();
+    auto& R=*result;
 	R.name="Quad";
 	R.vertices=std::vector<float>{
 		-1.0f,0.0f,-1.0f,	0.0f,1.0f,0.0f,
@@ -21,11 +22,12 @@ Mesh<MeshPoint> Mesh<MeshPoint>::evalQuad(){
 		0,2,3
 	});
 	
-	return R;
+	return result;
 }
 
-Mesh<MeshPoint> Mesh<MeshPoint>::evalCube(){
-	Mesh<MeshPoint> R;
+std::shared_ptr<Mesh<MeshPoint>> Mesh<MeshPoint>::evalCube(){
+	std::shared_ptr<Mesh<MeshPoint>> result=std::make_shared<Mesh<MeshPoint>>();
+    auto& R=*result;
 	R.name="Cube";
 	R.vertices=std::vector<float>{
 		-1,-1,+1,0,0,1,
@@ -67,11 +69,12 @@ Mesh<MeshPoint> Mesh<MeshPoint>::evalCube(){
 		16,17,18,16,18,19,
 		20,21,22,20,22,23
 		});
-	return R;
+	return result;
 }
 
-Mesh<TexturedMeshPoint> Mesh<TexturedMeshPoint>::evalCube(){
-	Mesh<TexturedMeshPoint> R;
+std::shared_ptr<Mesh<TexturedMeshPoint>> Mesh<TexturedMeshPoint>::evalCube(){
+	auto result=std::make_shared<Mesh<TexturedMeshPoint>>();
+	auto& R=*result;
 	R.name="Cube";
 	R.vertices=std::vector<float>{
 		-1,-1,+1,	0,0,1,	0,0,
@@ -113,29 +116,31 @@ Mesh<TexturedMeshPoint> Mesh<TexturedMeshPoint>::evalCube(){
 		16,17,18,16,18,19,
 		20,21,22,20,22,23
 	});
-	return R;
+	return result;
 } 
 
-Mesh<MeshPoint> Mesh<MeshPoint>::evalCircle(float radius,uint32_t steps){
-	Curve c=Curve::evalCircle(radius,steps);
-	Mesh<MeshPoint> R;
-	R.name="SolidCircle";
-	for(size_t i=0;i<c.size();i++){
+std::shared_ptr<Mesh<MeshPoint>> Mesh<MeshPoint>::evalCircle(float radius,uint32_t steps){
+	auto c=Curve::evalCircle(radius,steps);
+	std::shared_ptr<Mesh<MeshPoint>> result=std::make_shared<Mesh<MeshPoint>>();
+	auto& R=*result;
+	std::cout<<c->size()<<std::endl;
+	for(size_t i=0;i<c->size();i++){
 		R.vertices.insert(R.vertices.end(),{
-			c[i].V.x,c[i].V.y,c[i].V.z,
-			c[i].B.x,c[i].B.y,c[i].B.z,
+			(*c)[i].V.x,(*c)[i].V.y,(*c)[i].V.z,
+			(*c)[i].B.x,(*c)[i].B.y,(*c)[i].B.z,
 		});
 	}
-	for(size_t i=1;i+1<c.size();i++){
+	for(size_t i=1;i+1<c->size();i++){
 		R.indices.push_back(0);
 		R.indices.push_back(i);
 		R.indices.push_back(i+1);
 	}
-	return R;
+	return result;
 }
 
-Mesh<MeshPoint> Mesh<MeshPoint>::evalSphere(float radius,uint32_t steps){
-	Mesh<MeshPoint> R;
+std::shared_ptr<Mesh<MeshPoint>> Mesh<MeshPoint>::evalSphere(float radius,uint32_t steps){
+	std::shared_ptr<Mesh<MeshPoint>> result=std::make_shared<Mesh<MeshPoint>>();
+	auto& R=*result;
 	R.name="Sphere";
 
 	for (size_t i = 0; i < steps; ++i){
@@ -155,7 +160,7 @@ Mesh<MeshPoint> Mesh<MeshPoint>::evalSphere(float radius,uint32_t steps){
 			R.indices.insert(R.indices.end(), { l_nxt + j, l_now + j + 1, l_nxt + j + 1 });
 		}
 	}
-	return R;
+	return result;
 }
 
 static bool checkFlat(const Curve& profile)
@@ -169,14 +174,15 @@ static bool checkFlat(const Curve& profile)
 	return true;
 }
 
-Mesh<MeshPoint> Mesh<MeshPoint>::evalSweepSurf(const Curve& profile, unsigned steps)
+std::shared_ptr<Mesh<MeshPoint>> Mesh<MeshPoint>::evalSweepSurf(const Curve& profile, unsigned steps)
 {
-	Mesh<MeshPoint> mesh;
+	std::shared_ptr<Mesh<MeshPoint>> result=std::make_shared<Mesh<MeshPoint>>();
+	auto& mesh=*result;
 	mesh.name="SweepSurf";
 
 	if (!checkFlat(profile)){
 		std::cerr << "surfRev profile curve must be flat on xy plane." << std::endl;
-		return mesh;
+		return nullptr;
 	}
 
 	for (size_t i = 0; i < steps; ++i) {
@@ -201,17 +207,18 @@ Mesh<MeshPoint> Mesh<MeshPoint>::evalSweepSurf(const Curve& profile, unsigned st
 		}
 	}
 
-	return mesh;
+	return result;
 }
 
-Mesh<MeshPoint> Mesh<MeshPoint>::evalCylinder(const Curve& profile, const Curve& sweep)
+std::shared_ptr<Mesh<MeshPoint>> Mesh<MeshPoint>::evalCylinder(const Curve& profile, const Curve& sweep)
 {
-	Mesh<MeshPoint> mesh;
+	std::shared_ptr<Mesh<MeshPoint>> result=std::make_shared<Mesh<MeshPoint>>();
+	auto& mesh=*result;
 	mesh.name="Cylinder";
 
 	if (!checkFlat(profile)){
 		std::cerr << "surfRev profile curve must be flat on xy plane." << std::endl;
-		return mesh;
+		return nullptr;
 	}
 
 	for (size_t i = 0; i < sweep.size(); ++i) {
@@ -242,10 +249,10 @@ Mesh<MeshPoint> Mesh<MeshPoint>::evalCylinder(const Curve& profile, const Curve&
 		}
 	}
 
-	return mesh;
+	return result;
 }
 
-Mesh<MeshPoint> Mesh<MeshPoint>::evalModel(const char* filename) {
+std::shared_ptr<Mesh<MeshPoint>> Mesh<MeshPoint>::evalModel(const char* filename) {
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -254,7 +261,8 @@ Mesh<MeshPoint> Mesh<MeshPoint>::evalModel(const char* filename) {
 		throw std::runtime_error(warn + err);
 	}
 
-	Mesh<MeshPoint> mesh;
+	std::shared_ptr<Mesh<MeshPoint>> result=std::make_shared<Mesh<MeshPoint>>();
+	auto& mesh=*result;
 	mesh.name="Model";
 	std::vector<int> cnt(attrib.vertices.size() / 3);
 
@@ -292,7 +300,7 @@ Mesh<MeshPoint> Mesh<MeshPoint>::evalModel(const char* filename) {
 	for (size_t i = 0; i < mesh.size();i++) {
 		mesh[i].N /= cnt[i];
 	}
-	return mesh;
+	return result;
 }
 
 void MeshTBO::init(const Mesh<MeshPoint>& mesh){

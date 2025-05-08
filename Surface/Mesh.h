@@ -25,7 +25,8 @@ struct TexturedMeshPoint{
 template<class T>
 class Mesh:public glObject,public DataObject{
 public:
-    Mesh(){useIndex=true;type=DataType::MESH;name="Mesh";}
+    Mesh(){useIndex=true;name="Mesh";}
+    virtual DataType dataType() const override {return DataType::MESH;}
     void init(){
         glObject::init(reinterpret_cast<float*>(vertices.data()),vertices.size()/T::SIZE,T::PARTITION,indices);
     }
@@ -96,13 +97,13 @@ public:
         render(GL_TRIANGLES);
     }
     
-    static Mesh<MeshPoint> evalCircle(float radius,uint32_t steps);
-    static Mesh<MeshPoint> evalSphere(float radius,uint32_t steps);
-    static Mesh<MeshPoint> evalQuad();
-	static Mesh<T> evalCube();
-	static Mesh<MeshPoint> evalSweepSurf(const Curve& profile, unsigned steps);
-	static Mesh<MeshPoint> evalCylinder(const Curve& profile, const Curve& sweep);
-	static Mesh<MeshPoint> evalModel(const char* filename);
+    static std::shared_ptr<Mesh<MeshPoint>> evalCircle(float radius,uint32_t steps);
+    static std::shared_ptr<Mesh<MeshPoint>> evalSphere(float radius,uint32_t steps);
+    static std::shared_ptr<Mesh<MeshPoint>> evalQuad();
+	static std::shared_ptr<Mesh<T>> evalCube();
+	static std::shared_ptr<Mesh<MeshPoint>> evalSweepSurf(const Curve& profile, unsigned steps);
+	static std::shared_ptr<Mesh<MeshPoint>> evalCylinder(const Curve& profile, const Curve& sweep);
+	static std::shared_ptr<Mesh<MeshPoint>> evalModel(const char* filename);
 };
 
 class MeshTBO{

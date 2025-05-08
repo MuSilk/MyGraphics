@@ -37,10 +37,10 @@ void Curve::defaultrender_TNB(glm::mat4 model,glm::mat4 view,glm::mat4 proj){
 	glObject::render(GL_POINTS);
 }
 
-Curve Curve::evalBezier(const std::vector< glm::vec3 >& P, uint32_t steps) {
+std::shared_ptr<Curve> Curve::evalBezier(const std::vector< glm::vec3 >& P, uint32_t steps) {
 	if (P.size() < 4 || P.size() % 3 != 1) {
 		std::cerr << "evalBezier must be called with 3n+1 control points." << std::endl;
-		return Curve();
+		return nullptr;
 	}
 
 	const glm::mat4 BEZ = glm::mat4(
@@ -51,7 +51,8 @@ Curve Curve::evalBezier(const std::vector< glm::vec3 >& P, uint32_t steps) {
 	);
 
 	size_t n = (P.size() - 1) / 3;
-	Curve R(n * steps + 1);
+	auto result=std::make_shared<Curve>(n * steps + 1);
+	Curve& R = *result;
 	for (size_t i = 0; i < n; ++i) {
 		for (size_t j = 0; j < steps; ++j) {
 			float t = 1.0f * j / steps;
@@ -101,10 +102,10 @@ Curve Curve::evalBezier(const std::vector< glm::vec3 >& P, uint32_t steps) {
 			}
 		}
 	}
-	return R;
+	return result;
 }
 
-Curve Curve::evalBspline(const std::vector< glm::vec3 >& P, uint32_t steps) {
+std::shared_ptr<Curve> Curve::evalBspline(const std::vector< glm::vec3 >& P, uint32_t steps) {
 	if (P.size() < 4){
 		std::cerr << "evalBspline must be called with 4 or more control points." << std::endl;
 		exit(0);
@@ -125,7 +126,8 @@ Curve Curve::evalBspline(const std::vector< glm::vec3 >& P, uint32_t steps) {
 	const glm::mat4 trans_B_BEZ = B * glm::inverse(BEZ);
 
 	size_t n = P.size() - 3;
-	Curve R(n * steps + 1);
+	auto result=std::make_shared<Curve>(n * steps + 1);
+	Curve& R = *result;
 	for (size_t i = 0; i < n; i++) {
 		std::vector<glm::vec3> pBEZ(4);
 		for (size_t j = 0; j < 4; j++) {
@@ -134,9 +136,9 @@ Curve Curve::evalBspline(const std::vector< glm::vec3 >& P, uint32_t steps) {
 				pBEZ[j] += v[k] * P[i + k];
 			}
 		}
-		Curve curve = evalBezier(pBEZ, steps);
-		for(size_t j=0;j<curve.size();j++){
-			R[i*steps+j]=curve[j];
+		auto curve = evalBezier(pBEZ, steps);
+		for(size_t j=0;j<curve->size();j++){
+			R[i*steps+j]=(*curve)[j];
 		}
 	}
 
@@ -163,11 +165,12 @@ Curve Curve::evalBspline(const std::vector< glm::vec3 >& P, uint32_t steps) {
 			}
 		}
 	}
-	return R;
+	return result;
 }
 
-Curve Curve::evalCircle(float radius, uint32_t steps) {
-	Curve R(steps + 1);
+std::shared_ptr<Curve> Curve::evalCircle(float radius, uint32_t steps) {
+	std::shared_ptr<Curve> result=std::make_shared<Curve>(steps+1);
+	Curve& R=*result;
 	R.name="Circle";
 
 	for (unsigned i = 0; i <= steps; ++i)
@@ -183,7 +186,7 @@ Curve Curve::evalCircle(float radius, uint32_t steps) {
 		R[i].B = glm::vec3(0, 0, 1);
 	}
 
-	return R;
+	return result;
 }
 
 #include<shaders/rc.h>

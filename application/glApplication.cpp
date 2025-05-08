@@ -66,6 +66,9 @@ void glApplication::initSettings(){
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     MainCamera.Position=glm::vec3(-1.0f,1.0f,10.0f);
+    MainScene.camera=&MainCamera;
+    MainScene.Width=&Width;
+    MainScene.Height=&Height;
 }
 
 #include <surface/Curve.h>
@@ -84,23 +87,23 @@ RayTrace ray_trace;
 void glApplication::createDataBuffer(){
 
     // ray_trace.init(Width,Height);
-    Mesh<TexturedMeshPoint>* cube=new Mesh<TexturedMeshPoint>(Mesh<TexturedMeshPoint>::evalCube());
+    auto cube=Mesh<TexturedMeshPoint>::evalCube();
     cube->init();
     DataObjects["cube"]=cube;
 
-    Curve* circle = new Curve(Curve::evalCircle(1.0f,100)); 
+    auto circle = Curve::evalCircle(1.0f,100); 
     circle->init();
     DataObjects["circle"]=circle;
 
-    Mesh<MeshPoint>* solidcircle=new Mesh<MeshPoint>(Mesh<MeshPoint>::evalCircle(1.0f,100));
+    auto solidcircle=Mesh<MeshPoint>::evalCircle(1.0f,100);
     solidcircle->init();
     DataObjects["solid_circle"]=solidcircle;
 
-    Mesh<MeshPoint>* sphere=new Mesh<MeshPoint>(Mesh<MeshPoint>::evalSphere(1.0f,100));
+    auto sphere=Mesh<MeshPoint>::evalSphere(1.0f,100);
     sphere->init();
     DataObjects["sphere"]=sphere;
 
-    Mesh<MeshPoint>* quad=new Mesh<MeshPoint>(Mesh<MeshPoint>::evalQuad());
+    auto quad=Mesh<MeshPoint>::evalQuad();
     quad->init();
     DataObjects["quad"]=quad;
 }
@@ -173,13 +176,23 @@ void glApplication::GuiRender(){
     if(ImGui::BeginMenuBar()){
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Open", "Ctrl+O")) {  }
-            if (ImGui::MenuItem("Save", "Ctrl+S")) {  }
+            if (ImGui::MenuItem("Save", "Ctrl+S")) {  
+                char* path=nullptr;
+                if(NFD_SaveDialog("mep",NULL,&path)==NFD_OKAY){
+                    string string_path(path);
+                    if(string_path.substr(string_path.size()-4,4)!=".mep"){
+                        string_path+=".mep";
+                    }
+                    saveProject(string_path.c_str());
+                    free(path);
+                }
+            }
             if (ImGui::MenuItem("Close", "Ctrl+W")) {  }
             if (ImGui::BeginMenu("Import")){
                 if(ImGui::MenuItem("model","*.obj")){
                     char* path=nullptr;
                     if(NFD_OpenDialog("obj",NULL,&path)==NFD_OKAY){
-                        Mesh<MeshPoint>* mesh=new Mesh<MeshPoint>(Mesh<MeshPoint>::evalModel(path));
+                        auto mesh=Mesh<MeshPoint>::evalModel(path);
                         mesh->init();
                         std::filesystem::path p(path);
                         auto filename=p.filename().string();
@@ -208,7 +221,7 @@ void glApplication::GuiRender(){
                                 if(Textures.find(name)==Textures.end())break;
                             }
                         }
-                        Textures[name]=texture;
+                        Textures[name]={texture,string(path)};
                         free(path);
                     }
                 }
@@ -228,12 +241,12 @@ void glApplication::GuiRender(){
 
         ImGui::Separator();
 
-        if (ImGui::RadioButton("Common", renderOption == RENDEROPTION_COMMON)) { 
-            renderOption = RENDEROPTION_COMMON;
+        if (ImGui::RadioButton("Common", renderOption == Scene::RenderOption::RENDEROPTION_COMMON)) { 
+            renderOption = Scene::RenderOption::RENDEROPTION_COMMON;
         }
 
-        if (ImGui::RadioButton("Phone", renderOption == RENDEROPTION_PHONE)) { 
-            renderOption = RENDEROPTION_PHONE;
+        if (ImGui::RadioButton("Phone", renderOption == Scene::RenderOption::RENDEROPTION_PHONE)) { 
+            renderOption = Scene::RenderOption::RENDEROPTION_PHONE;
         }
 
         ImGui::EndMenuBar();
@@ -385,7 +398,7 @@ void glApplication::GuiRender(){
                             }
                             if (ImGui::Combo("Texture##diffuse.texture", &selected, texture_list.data(), texture_list.size())){
                                 diffuse_ptr->TextureName=texture_list[selected];
-                                diffuse_ptr->texture=Textures[diffuse_ptr->TextureName];
+                                diffuse_ptr->texture=Textures[diffuse_ptr->TextureName].texture;
                             }
                             break;
                         }
@@ -428,7 +441,7 @@ void glApplication::GuiRender(){
                             }
                             if (ImGui::Combo("Texture##specular.texture", &selected, texture_list.data(), texture_list.size())){
                                 specular_ptr->TextureName=texture_list[selected];
-                                specular_ptr->texture=Textures[specular_ptr->TextureName];
+                                specular_ptr->texture=Textures[specular_ptr->TextureName].texture;
                             }
                             break;
                         }
@@ -503,7 +516,7 @@ void glApplication::GuiRender(){
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MODEL_NAME")){
                 PhoneObject obj=PhoneObject::evalMeshObject(
                     MainCamera.GetPointPosition(mousePos,20.0f,Width,Height),
-                    DataObjects[(char*)payload->Data],
+                    DataObjects[(char*)payload->Data].get(),
                     MainCamera,Width,Height
                 );
                 MainScene.addObject(obj);
@@ -515,7 +528,7 @@ void glApplication::GuiRender(){
             if(ImGui::MenuItem("Create Cube",NULL)){
                 PhoneObject obj=PhoneObject::evalMeshObject(
                     MainCamera.GetPointPosition(mouseRightClickMenuPos,20.0f,Width,Height),
-                    DataObjects["cube"],
+                    DataObjects["cube"].get(),
                     MainCamera,Width,Height
                 );
                 MainScene.addObject(obj);
@@ -525,12 +538,8 @@ void glApplication::GuiRender(){
                 obj.position=MainCamera.GetPointPosition(mouseRightClickMenuPos,20.0f,Width,Height);
                 obj.scale=glm::vec3(0.1f,0.1f,0.1f);
                 obj.rotation=glm::quat(glm::vec3(0.0f,0.0f,0.0f));
-                obj.dataSurface=DataObjects["circle"];
-                obj.clickRegion=DataObjects["solid_circle"];
-
-                obj.render=Scene::defaultrender(&MainCamera,&Width,&Height);
-                obj.render_margin=Scene::defaultrender_region(&MainCamera,&Width,&Height);
-
+                obj.dataSurface=DataObjects["circle"].get();
+                obj.clickRegion=DataObjects["solid_circle"].get();
                 obj.update=[&](RenderObject& thisobj){
                     auto z=glm::normalize(MainCamera.Position-thisobj.position);
                     auto x=glm::normalize(glm::cross(glm::vec3(0.0f,1.0f,0.0f),z));
@@ -575,16 +584,7 @@ void glApplication::EngineRender(){
     glm::mat4 view=MainCamera.GetViewMatrix();
     glm::mat4 proj=MainCamera.GetProjectionMatrix(WIDTH,HEIGHT);
 
-    switch (renderOption){
-        case RENDEROPTION_COMMON:
-            MainScene.render();
-            MainScene.render_select();
-            break;
-        case RENDEROPTION_PHONE:
-            MainScene.render_phone();
-        default:
-            break;
-        }
+    MainScene.render(renderOption);
 
     // ray_trace.render(MainCamera,Width,Height);
 }
@@ -695,4 +695,51 @@ void glApplication::mouseButtonCallback(GLFWwindow* window, int button, int acti
             }
         }
     }
+}
+
+#include <tinyxml2.h>
+using namespace tinyxml2;
+void glApplication::saveProject(const char* path){
+    XMLDocument doc;
+    auto declaration=doc.NewDeclaration();
+    doc.InsertFirstChild(declaration);
+
+    auto project_elem=doc.NewElement("Project");
+    doc.InsertEndChild(project_elem);
+
+    auto textures_elem=doc.NewElement("Textures");
+    project_elem->InsertEndChild(textures_elem);
+    for(auto& [name,texture]:Textures){
+        auto texture_elem=doc.NewElement("Texture");
+        texture_elem->SetAttribute("Name",name.c_str());
+        texture_elem->SetAttribute("Source",texture.source.c_str());
+        textures_elem->InsertEndChild(texture_elem);
+    }
+
+    auto models_elem=doc.NewElement("Surfaces");
+    project_elem->InsertEndChild(models_elem);
+    for(auto& [name,obj]:DataObjects){
+        auto model_elem=doc.NewElement("Surface");
+        models_elem->InsertEndChild(model_elem);
+
+        model_elem->SetAttribute("Name",name.c_str());
+        switch (obj->dataType()){
+            case DataType::CURVE:{
+                model_elem->SetAttribute("Type","Curve");
+                
+            }
+            case DataType::MESH:{
+                model_elem->SetAttribute("Type","Mesh");
+            }
+            default:{
+                throw std::runtime_error("undefined data type");
+            }
+        }
+        
+        // model_elem->SetAttribute("Type",(int)obj->objectType());
+        // model_elem->SetAttribute("Source",obj->source.c_str());
+        
+    }
+
+    doc.SaveFile(path);
 }

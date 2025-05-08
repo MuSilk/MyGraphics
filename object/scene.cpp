@@ -22,7 +22,6 @@ void Scene::addObject(const RenderObject& obj){
         break;
     }
     Objects[id]->id=id;
-    Objects[id]->curScene=this;
 }
 void Scene::delObject(uint32_t id){
     if(Objects.find(id)==Objects.end())return;
@@ -80,31 +79,47 @@ void Scene::dragSelectObjects(glm::vec3 offset){
     }
 }
 
-void Scene::render(){
-    for(auto& [id,obj]:Objects){
-        obj->render(*obj);
+void Scene::render(RenderOption option){
+    switch (option){
+    case RenderOption::RENDEROPTION_COMMON:{
+        for(auto& [id,obj]:Objects){
+            Scene::defaultrender(camera,Width,Height)(*obj);
+        }
+
+        glEnable(GL_STENCIL_TEST);
+
+        glStencilFunc(GL_NOTEQUAL,1,0xFF);
+        glStencilMask(0x00);
+        glDisable(GL_DEPTH_TEST);
+
+        for(auto& id:ObjectsSelect){
+            Scene::defaultrender_region(camera,Width,Height)(*Objects[id]);
+        }
+
+        glStencilMask(0xFF);
+        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_STENCIL_TEST);
+        return;
     }
-}
-
-void Scene::render_phone(){
-    for(auto [id,obj]:Objects){
-        obj->render_phone(*obj);
+    case RenderOption::RENDEROPTION_PHONE:{
+        for(auto [id,obj]:Objects){
+            if(obj->objectType()!=ObjectType::PHONE)continue;
+            glm::mat4 model=obj->GetModelMatrix();
+            glm::mat4 view=camera->GetViewMatrix();
+            glm::mat4 proj=camera->GetProjectionMatrix(*Width,*Height);
+            glm::vec3 lightdir=glm::normalize(-camera->Front);
+            
+            dynamic_pointer_cast<PhoneObject>(obj)->defaultrender_phone(
+                model,view,proj,
+                camera->Position,
+                this->getLight().get(),this->ambientColor
+            );
+        }
     }
-}
-void Scene::render_select(){
-    glEnable(GL_STENCIL_TEST);
-
-    glStencilFunc(GL_NOTEQUAL,1,0xFF);
-    glStencilMask(0x00);
-    glDisable(GL_DEPTH_TEST);
-
-    for(auto& id:ObjectsSelect){
-        Objects[id]->render_margin(*Objects[id]);
+    default:
+        break;
     }
-
-    glStencilMask(0xFF);
-    glEnable(GL_DEPTH_TEST);
-    glDisable(GL_STENCIL_TEST);
+    
 }
 
 void Scene::update(){
@@ -127,7 +142,7 @@ std::function<void(const RenderObject&)> Scene::defaultrender(
             glStencilOp(GL_KEEP,GL_REPLACE,GL_REPLACE);
             glStencilFunc(GL_ALWAYS,1,0xFF);
 
-            switch (thisobj.dataSurface->type){
+            switch (thisobj.dataSurface->dataType()){
             case DataType::MESH:
                 ((Mesh<MeshPoint>*)thisobj.dataSurface)->defaultrender(model,view,proj,camera->Position,lightdir);
                 break;
@@ -141,7 +156,7 @@ std::function<void(const RenderObject&)> Scene::defaultrender(
             glDisable(GL_STENCIL_TEST);
         }
         else {
-            switch (thisobj.dataSurface->type){
+            switch (thisobj.dataSurface->dataType()){
             case DataType::MESH:
                 ((Mesh<MeshPoint>*)thisobj.dataSurface)->defaultrender(model,view,proj,camera->Position,lightdir);
                 break;
@@ -165,7 +180,7 @@ std::function<void(const RenderObject&)> Scene::defaultrender_region(
         glm::mat4 view=camera->GetViewMatrix();
         glm::mat4 proj=camera->GetProjectionMatrix(*width,*height);
 
-        switch (thisobj.dataSurface->type){
+        switch (thisobj.dataSurface->dataType()){
             case DataType::MESH:
                 ((Mesh<MeshPoint>*)thisobj.dataSurface)->defaultrender_region(proj*view*model,glm::vec3(1.0f,1.0f,0.0f));
                 break;

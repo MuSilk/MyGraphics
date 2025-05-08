@@ -8,22 +8,6 @@
 #include <object/scene.h>
 #include <glBasic/Camera.h>
 
-void RenderObject::render_select(const std::map<std::string,RenderObject>& objects){
-    glEnable(GL_STENCIL_TEST);
-
-    glStencilFunc(GL_NOTEQUAL,1,0xFF);
-    glStencilMask(0x00);
-    glDisable(GL_DEPTH_TEST);
-
-    for(auto& i:objects){
-        i.second.render_margin(i.second);
-    }
-
-    glStencilMask(0xFF);
-    glEnable(GL_DEPTH_TEST);
-    glDisable(GL_STENCIL_TEST);
-}
-
 bool RenderObject::intersect(glm::vec3 RayOrigin,glm::vec3 RayDir,float tmin,float& t){
 
     if(clickRegion==nullptr)return false;
@@ -80,23 +64,6 @@ bool RenderObject::intersect_triangle(Triangle tri,glm::vec3 RayOrigin,glm::vec3
     return false;
 }
 
-RenderObject RenderObject::evalSurface(
-    glm::vec3 pos,DataObject* datasource,
-    Camera& camera,uint32_t& Width,uint32_t& Height
-){
-    RenderObject obj;
-    obj.position=pos;
-    obj.scale=glm::vec3(1.0f,1.0f,1.0f);
-    obj.rotation=glm::quat(glm::vec3(0.0f,0.0f,0.0f));
-    obj.dataSurface=datasource;
-    obj.clickRegion=datasource;
-
-    obj.render=Scene::defaultrender(&camera,&Width,&Height);
-    obj.render_margin=Scene::defaultrender_region(&camera,&Width,&Height);
-
-    return obj;
-}
-
 PhoneObject PhoneObject::evalMeshObject(
     glm::vec3 pos,DataObject* datasource,
     Camera& camera,uint32_t& Width,uint32_t& Height
@@ -107,24 +74,6 @@ PhoneObject PhoneObject::evalMeshObject(
     obj.rotation=glm::quat(glm::vec3(0.0f,0.0f,0.0f));
     obj.dataSurface=datasource;
     obj.clickRegion=datasource;
-
-    obj.render=Scene::defaultrender(&camera,&Width,&Height);
-    obj.render_margin=Scene::defaultrender_region(&camera,&Width,&Height);
-
-    obj.render_phone=[&](const RenderObject& thisobj){
-        glm::mat4 model=thisobj.GetModelMatrix();
-        glm::mat4 view=camera.GetViewMatrix();
-        glm::mat4 proj=camera.GetProjectionMatrix(Width,Height);
-        glm::vec3 lightdir=glm::normalize(-camera.Front);
-
-        auto light=thisobj.curScene->getLight();
-        
-        ((PhoneObject*)&thisobj)->defaultrender_phone(
-            model,view,proj,
-            camera.Position,
-            light.get(),thisobj.curScene->ambientColor
-        );
-    };
 
     obj.diffuse=make_shared<SurfaceColor>();
     obj.specular=make_shared<SurfaceColor>();
@@ -183,12 +132,12 @@ void Light::generateShadowMap(shared_ptr<Scene> scene,float near,float far){
     shadowshader->setVec3("lightPos", position);
 	shadowshader->set1f("far_plane", far);
 
-    for(auto obj:scene->Objects){
-        if(obj.second->objectType()==ObjectType::PHONE){
-            auto real_ptr=dynamic_pointer_cast<PhoneObject>(obj.second);
-            real_ptr->render_phone(*real_ptr);
-        }
-    }
+    // for(auto obj:scene->Objects){
+    //     if(obj.second->objectType()==ObjectType::PHONE){
+    //         auto real_ptr=dynamic_pointer_cast<PhoneObject>(obj.second);
+    //         real_ptr->render_phone(*real_ptr);
+    //     }
+    // }
 
     glBindFramebuffer(GL_FRAMEBUFFER,0);
     glViewport(viewport[0],viewport[1],viewport[2],viewport[3]);
@@ -250,4 +199,37 @@ void PhoneObject::defaultrender_phone(
 	shader->setVec3("ambientColor",ambientColor);
 
     ((Mesh<MeshPoint>*)dataSurface)->render(GL_TRIANGLES);
+}
+
+void ObjectGroup::addObject(const RenderObject& obj){
+    auto id=ObjectsIdManager.get();
+    switch (obj.objectType())
+    {
+    case ObjectType::COMMON:
+        Objects[id]=make_shared<RenderObject>(obj);
+        if(Objects[id]->name=="")Objects[id]->name=obj.dataSurface->name+std::to_string(id);
+        break;
+    case ObjectType::PHONE:{
+        Objects[id]=make_shared<PhoneObject>(*(PhoneObject*)&obj);
+        if(Objects[id]->name=="")Objects[id]->name=obj.dataSurface->name+std::to_string(id);
+        break;
+    }
+    case ObjectType::LIGHT:{
+        Objects[id]=Lights[id]=make_shared<Light>(*(Light*)&obj);
+        if(Objects[id]->name=="")Objects[id]->name="Light"+std::to_string(id);
+        break;
+    }
+    default:
+        break;
+    }
+    Objects[id]->id=id;
+}
+
+void ObjectGroup::delObject(uint32_t id){
+    if(Objects.find(id)==Objects.end())return;
+    // if(Objects[id]->selected)ObjectsSelect.erase(id);
+    // if(lastSelectObject==id)lastSelectObject=-1;
+    if(Objects[id]->objectType()==ObjectType::LIGHT)Lights.erase(id);
+    ObjectsIdManager.release(id);
+    Objects.erase(id);
 }

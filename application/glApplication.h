@@ -28,8 +28,13 @@ private:
     uint32_t Width=WIDTH,Height=HEIGHT;
     GLFWwindow* window;
 
-    std::map<std::string,shared_ptr<Texture2D>> Textures;
-    std::map<std::string,DataObject*> DataObjects;
+    struct sourcedTexture{
+        std::shared_ptr<Texture2D> texture;
+        std::string source;
+    };
+
+    std::map<std::string,sourcedTexture> Textures;
+    std::map<std::string,std::shared_ptr<DataObject>> DataObjects;
 
     Scene MainScene;
 
@@ -54,17 +59,16 @@ private:
 	void createDataBuffer();
 	void initSettings();
 
-    enum RenderOption{
-        RENDEROPTION_COMMON,
-        RENDEROPTION_PHONE,
-        RENDEROPTION_RAYTRACE
-    }renderOption=RENDEROPTION_COMMON;
+    Scene::RenderOption renderOption;
 
     void GuiRender();
     void EngineRender();
     void EngineUpdate(double dt);
 
     void dragSelectObjects(glm::vec2 mouseMovement);
+
+    void saveProject(const char* path);
+    void loadProject(const char* path);
 
     bool MouseStatus[8];
 
